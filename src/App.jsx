@@ -283,7 +283,8 @@ function getStats(state) {
   const todaysMeals = state.food.meals.filter((meal) => meal.date === today);
   const calories = todaysMeals.reduce((sum, meal) => sum + Number(meal.calories || 0), 0);
   const calorieTarget = Number(state.food.calorieTarget || 0);
-  const sevenDayAverage = getSevenDayCalorieAverage(state.food.meals);
+  const sevenDayCalories = getSevenDayCalories(state.food.meals);
+  const sevenDayAverage = Math.round(sevenDayCalories.reduce((sum, day) => sum + day.calories, 0) / 7);
   const income = state.finances.entries
     .filter((entry) => entry.type === "income")
     .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
@@ -305,6 +306,7 @@ function getStats(state) {
       remaining: Math.max(0, calorieTarget - calories),
       progress: calorieTarget ? Math.min(100, Math.round((calories / calorieTarget) * 100)) : 0,
       sevenDayAverage,
+      sevenDayCalories,
     },
     finances: {
       income,
@@ -321,21 +323,23 @@ function getStats(state) {
   };
 }
 
-function getSevenDayCalorieAverage(meals) {
+function getSevenDayCalories(meals) {
   const date = new Date(`${todayISO()}T12:00:00`);
-  const dates = new Set();
+  const days = [];
 
-  for (let offset = 0; offset < 7; offset += 1) {
+  for (let offset = 6; offset >= 0; offset -= 1) {
     const day = new Date(date);
     day.setDate(date.getDate() - offset);
-    dates.add(day.toISOString().slice(0, 10));
+    const iso = day.toISOString().slice(0, 10);
+    const calories = meals.filter((meal) => meal.date === iso).reduce((sum, meal) => sum + Number(meal.calories || 0), 0);
+    days.push({
+      calories,
+      date: iso,
+      label: new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(day),
+    });
   }
 
-  const total = meals
-    .filter((meal) => dates.has(meal.date))
-    .reduce((sum, meal) => sum + Number(meal.calories || 0), 0);
-
-  return Math.round(total / 7);
+  return days;
 }
 
 function domainCount(state, id) {
@@ -505,10 +509,10 @@ function FoodPage({ actions, state, stats }) {
       <section className="overview-grid">
         <StatCard accent="food" Icon={Utensils} detail="calories today" label="Eaten" value={stats.calories} />
         <StatCard accent="food" Icon={Target} detail="against target" label="Left" value={stats.remaining} />
-        <StatCard accent="food" Icon={Calendar} detail="cal/day" label="7-Day Avg" value={stats.sevenDayAverage} />
         <StatCard accent="food" Icon={Calendar} detail="logged total" label="Meals" value={state.food.meals.length} />
         <StatCard accent="food" Icon={Check} detail="saved ideas" label="Recipes" value={state.food.recipes.length} />
       </section>
+      <CalorieBarChart days={stats.sevenDayCalories} average={stats.sevenDayAverage} target={state.food.calorieTarget} />
       <section className="section-grid food-accent">
         <Panel>
           <SectionTitle Icon={Target} title="Calorie Tracker" />
@@ -893,6 +897,39 @@ function StatCard({ accent, detail, Icon, label, value }) {
       <p className="stat-value">{value}</p>
       <span className="tag">{detail}</span>
     </article>
+  );
+}
+
+function CalorieBarChart({ average, days, target }) {
+  const maxCalories = Math.max(target, average, ...days.map((day) => day.calories), 1);
+
+  return (
+    <section className="section-panel calorie-chart food-accent" aria-label="Last 7 days of calories eaten">
+      <div className="chart-heading">
+        <div>
+          <p className="eyebrow">Last 7 Days</p>
+          <h2>Calories Eaten</h2>
+        </div>
+        <div className="chart-average">
+          <span>{average}</span>
+          <small>avg/day</small>
+        </div>
+      </div>
+      <div className="bar-chart" role="img" aria-label={`Average ${average} calories per day across the last 7 days`}>
+        {days.map((day) => {
+          const height = Math.max(8, Math.round((day.calories / maxCalories) * 100));
+          return (
+            <div className="bar-day" key={day.date}>
+              <div className="bar-value">{day.calories}</div>
+              <div className="bar-track">
+                <div className="bar-fill" style={{ "--height": `${height}%` }}></div>
+              </div>
+              <div className="bar-label">{day.label}</div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

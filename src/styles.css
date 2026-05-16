@@ -692,6 +692,105 @@ h1 {
   background: var(--accent, var(--ink));
 }
 
+.calorie-chart {
+  margin-bottom: 1.25rem;
+}
+
+.chart-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.chart-heading h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.chart-average {
+  min-width: 5.5rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.42);
+  text-align: right;
+}
+
+.chart-average span,
+.chart-average small {
+  display: block;
+}
+
+.chart-average span {
+  font-size: 1.65rem;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.chart-average small {
+  margin-top: 0.15rem;
+  color: var(--muted);
+  font-family: ui-sans-serif, Avenir Next, Avenir, Segoe UI, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.bar-chart {
+  min-height: 13rem;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.7rem;
+  align-items: end;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background:
+    repeating-linear-gradient(0deg, transparent 0 2.45rem, rgba(23, 23, 17, 0.06) 2.48rem 2.52rem),
+    rgba(255, 255, 255, 0.3);
+}
+
+.bar-day {
+  min-width: 0;
+  height: 11rem;
+  display: grid;
+  grid-template-rows: 1.35rem 1fr 1.2rem;
+  gap: 0.35rem;
+}
+
+.bar-value,
+.bar-label {
+  overflow: hidden;
+  color: var(--muted);
+  font-family: ui-sans-serif, Avenir Next, Avenir, Segoe UI, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.bar-track {
+  min-height: 0;
+  display: flex;
+  align-items: end;
+  border-radius: 999px 999px 5px 5px;
+  background: rgba(23, 23, 17, 0.08);
+  overflow: hidden;
+}
+
+.bar-fill {
+  width: 100%;
+  height: var(--height, 8%);
+  min-height: 0.4rem;
+  border-radius: inherit;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--food), white 18%), var(--food));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
 .dashboard-bottom {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.5fr);
@@ -759,6 +858,10 @@ h1 {
     grid-template-columns: 1fr;
   }
 
+  .bar-chart {
+    gap: 0.45rem;
+  }
+
   .overview-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -804,5 +907,14 @@ h1 {
 
   .row-actions {
     justify-content: flex-start;
+  }
+
+  .chart-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .chart-average {
+    text-align: left;
   }
 }
