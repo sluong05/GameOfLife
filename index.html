@@ -8,32 +8,10 @@
       content="Game of Life is a private local-first dashboard for food, finances, fitness, and daily momentum."
     />
     <title>Game of Life</title>
-    <link rel="icon" href="./assets/life-mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" href="/assets/life-mark.svg" type="image/svg+xml" />
   </head>
   <body>
-    <div class="app-shell">
-      <aside class="side-rail" aria-label="Game of Life navigation">
-        <a class="brand-lockup" href="#/" aria-label="Game of Life home">
-          <img src="./assets/life-mark.svg" alt="" class="brand-mark" />
-          <span>Game of Life</span>
-        </a>
-        <nav class="nav-stack" id="navStack"></nav>
-        <div class="storage-note">
-          <span class="pulse-dot" aria-hidden="true"></span>
-          Local storage only
-        </div>
-      </aside>
-
-      <main class="main-stage" id="app" tabindex="-1"></main>
-    </div>
-
-    <template id="iconTemplate">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path></path>
-      </svg>
-    </template>
-
-    <script src="./app.js" defer></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

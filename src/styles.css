@@ -8,7 +8,6 @@
   --food: #d94f2b;
   --finance: #087f5b;
   --fitness: #3957d7;
-  --mind: #9b4d1f;
   --gold: #d49b22;
   --shadow: 0 18px 48px rgba(37, 31, 16, 0.13);
   --radius: 8px;
@@ -45,6 +44,13 @@ button {
   cursor: pointer;
 }
 
+hr {
+  width: 100%;
+  margin: 1rem 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 18rem minmax(0, 1fr);
@@ -63,7 +69,7 @@ button {
   border-right: 1px solid var(--line);
   background:
     linear-gradient(180deg, rgba(255, 250, 240, 0.88), rgba(242, 236, 217, 0.74)),
-    url("./assets/life-mark.svg") 145% 103% / 17rem no-repeat;
+    url("/assets/life-mark.svg") 145% 103% / 17rem no-repeat;
   backdrop-filter: blur(16px);
 }
 
@@ -122,10 +128,6 @@ button {
 .domain-kicker svg {
   width: 1.1rem;
   height: 1.1rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
   stroke-width: 2;
 }
 
@@ -213,7 +215,8 @@ h1 {
   letter-spacing: 0;
 }
 
-.hero-copy > p:not(.eyebrow) {
+.hero-copy > p:not(.eyebrow),
+.page-top > div > p:not(.eyebrow) {
   max-width: 41rem;
   color: #4c493f;
   font-size: clamp(1.05rem, 2vw, 1.35rem);
@@ -319,6 +322,18 @@ h1 {
   box-shadow: 0 10px 30px rgba(37, 31, 16, 0.07);
 }
 
+.food-accent {
+  --accent: var(--food);
+}
+
+.finance-accent {
+  --accent: var(--finance);
+}
+
+.fitness-accent {
+  --accent: var(--fitness);
+}
+
 .stat-card {
   min-height: 8rem;
   padding: 1rem;
@@ -392,6 +407,12 @@ h1 {
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.domain-kicker span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .domain-card h2 {
@@ -611,11 +632,6 @@ h1 {
 .icon-button svg {
   width: 1rem;
   height: 1rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2;
 }
 
 .empty-state {
@@ -728,10 +744,6 @@ h1 {
   .two-col,
   .three-col {
     grid-template-columns: 1fr;
-  }
-
-  .nav-link {
-    grid-template-columns: 1.45rem 1fr auto;
   }
 
   .hero-band {
