@@ -44,7 +44,14 @@ const domains = [
 ];
 
 const createId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = () => formatLocalISODate(new Date());
+
+function formatLocalISODate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 const defaultState = {
   food: {
@@ -330,7 +337,7 @@ function getSevenDayCalories(meals) {
   for (let offset = 6; offset >= 0; offset -= 1) {
     const day = new Date(date);
     day.setDate(date.getDate() - offset);
-    const iso = day.toISOString().slice(0, 10);
+    const iso = formatLocalISODate(day);
     const calories = meals.filter((meal) => meal.date === iso).reduce((sum, meal) => sum + Number(meal.calories || 0), 0);
     days.push({
       calories,
