@@ -335,11 +335,19 @@ function getSevenDayCalories(meals) {
     days.push({
       calories,
       date: iso,
-      label: new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(day),
+      label: formatChartDate(day),
     });
   }
 
   return days;
+}
+
+function formatChartDate(date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "2-digit",
+  }).format(date);
 }
 
 function domainCount(state, id) {
