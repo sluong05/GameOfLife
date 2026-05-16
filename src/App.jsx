@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  BookOpenText,
   Calendar,
   Check,
   Dumbbell,
@@ -181,7 +182,18 @@ function createActions(setState) {
     addRecipe(recipe) {
       setState((state) => ({
         ...state,
-        food: { ...state.food, recipes: [{ id: createId(), name: recipe.name.trim(), notes: recipe.notes.trim() }, ...state.food.recipes] },
+        food: {
+          ...state.food,
+          recipes: [
+            {
+              id: createId(),
+              name: recipe.name.trim(),
+              ingredients: recipe.ingredients.trim(),
+              instructions: recipe.instructions.trim(),
+            },
+            ...state.food.recipes,
+          ],
+        },
       }));
     },
     addFinanceEntry(entry) {
@@ -271,6 +283,7 @@ function getStats(state) {
   const todaysMeals = state.food.meals.filter((meal) => meal.date === today);
   const calories = todaysMeals.reduce((sum, meal) => sum + Number(meal.calories || 0), 0);
   const calorieTarget = Number(state.food.calorieTarget || 0);
+  const sevenDayAverage = getSevenDayCalorieAverage(state.food.meals);
   const income = state.finances.entries
     .filter((entry) => entry.type === "income")
     .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
@@ -291,6 +304,7 @@ function getStats(state) {
       calories,
       remaining: Math.max(0, calorieTarget - calories),
       progress: calorieTarget ? Math.min(100, Math.round((calories / calorieTarget) * 100)) : 0,
+      sevenDayAverage,
     },
     finances: {
       income,
@@ -305,6 +319,23 @@ function getStats(state) {
       totalMinutes: state.fitness.workouts.reduce((sum, workout) => sum + Number(workout.minutes || 0), 0),
     },
   };
+}
+
+function getSevenDayCalorieAverage(meals) {
+  const date = new Date(`${todayISO()}T12:00:00`);
+  const dates = new Set();
+
+  for (let offset = 0; offset < 7; offset += 1) {
+    const day = new Date(date);
+    day.setDate(date.getDate() - offset);
+    dates.add(day.toISOString().slice(0, 10));
+  }
+
+  const total = meals
+    .filter((meal) => dates.has(meal.date))
+    .reduce((sum, meal) => sum + Number(meal.calories || 0), 0);
+
+  return Math.round(total / 7);
 }
 
 function domainCount(state, id) {
@@ -474,6 +505,7 @@ function FoodPage({ actions, state, stats }) {
       <section className="overview-grid">
         <StatCard accent="food" Icon={Utensils} detail="calories today" label="Eaten" value={stats.calories} />
         <StatCard accent="food" Icon={Target} detail="against target" label="Left" value={stats.remaining} />
+        <StatCard accent="food" Icon={Calendar} detail="cal/day" label="7-Day Avg" value={stats.sevenDayAverage} />
         <StatCard accent="food" Icon={Calendar} detail="logged total" label="Meals" value={state.food.meals.length} />
         <StatCard accent="food" Icon={Check} detail="saved ideas" label="Recipes" value={state.food.recipes.length} />
       </section>
@@ -503,9 +535,9 @@ function FoodPage({ actions, state, stats }) {
           <RecipeForm actions={actions} />
         </Panel>
         <Panel>
-          <SectionTitle Icon={Calendar} title="Saved Recipes" />
+          <SectionTitle Icon={BookOpenText} title="Saved Recipes" />
           <List items={state.food.recipes} empty="Recipe ideas will live here.">
-            {(recipe) => <ListRow actions={actions} id={recipe.id} subtitle={recipe.notes || "No notes yet."} title={recipe.name} type="recipe" />}
+            {(recipe) => <RecipeCard actions={actions} recipe={recipe} />}
           </List>
         </Panel>
       </section>
@@ -569,14 +601,53 @@ function RecipeForm({ actions }) {
     <form className="form-grid" onSubmit={(event) => handleSubmit(event, actions.addRecipe)}>
       <Field id="recipeName" label="Recipe" name="name" placeholder="Lemon chicken rice bowls" required />
       <div className="field">
-        <label htmlFor="recipeNotes">Notes</label>
-        <textarea id="recipeNotes" name="notes" placeholder="Ingredients, links, tweaks, protein swaps..."></textarea>
+        <label htmlFor="recipeIngredients">Ingredients</label>
+        <textarea
+          id="recipeIngredients"
+          name="ingredients"
+          placeholder={"Chicken breast\nRice\nLemon\nGreek yogurt"}
+        ></textarea>
+      </div>
+      <div className="field">
+        <label htmlFor="recipeInstructions">Instructions</label>
+        <textarea id="recipeInstructions" name="instructions" placeholder="Prep ingredients, cook, assemble, and note any tweaks for next time."></textarea>
       </div>
       <button className="primary-button" type="submit">
         <Plus className="button-icon" />
         Save recipe
       </button>
     </form>
+  );
+}
+
+function RecipeCard({ actions, recipe }) {
+  const sections = [
+    { label: "Ingredients", value: recipe.ingredients },
+    { label: "Instructions", value: recipe.instructions },
+    { label: "Notes", value: !recipe.ingredients && !recipe.instructions ? recipe.notes : "" },
+  ].filter((section) => section.value);
+
+  return (
+    <article className="list-row recipe-row">
+      <div>
+        <p className="row-title">{recipe.name}</p>
+        {sections.length ? (
+          <div className="recipe-sections">
+            {sections.map((section) => (
+              <section className="recipe-section" key={section.label}>
+                <h3>{section.label}</h3>
+                <p>{section.value}</p>
+              </section>
+            ))}
+          </div>
+        ) : (
+          <p className="row-subtitle">No ingredients or instructions yet.</p>
+        )}
+      </div>
+      <div className="row-actions">
+        <DeleteButton actions={actions} id={recipe.id} type="recipe" />
+      </div>
+    </article>
   );
 }
 
