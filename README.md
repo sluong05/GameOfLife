@@ -6,7 +6,7 @@ A local-first React morning dashboard for food, finances, fitness, and daily foc
 
 - Morning dashboard with quick overview cards
 - Food page with a calorie target, 7-day calorie bar chart, meal log, and structured recipe log
-- Finances page with income/expense entries, bills, and savings goals
+- Finances page with monthly cashflow, budget categories, spending mix, income/expense entries, bills, savings goals, debts, and subscriptions
 - Fitness page with workout logs and daily habit checkboxes
 - All data is stored in the browser with `localStorage`
 - No backend or account required

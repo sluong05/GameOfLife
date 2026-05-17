@@ -823,6 +823,116 @@ h1 {
   border-color: var(--ink);
 }
 
+.finance-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.finance-block {
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.money-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+
+.metric-tile {
+  min-height: 5rem;
+  display: grid;
+  align-content: space-between;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 250, 240, 0.58);
+}
+
+.metric-tile span {
+  color: var(--muted);
+  font-family: ui-sans-serif, Avenir Next, Avenir, Segoe UI, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.metric-tile strong {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.budget-list,
+.split-stack {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.budget-row {
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 250, 240, 0.58);
+}
+
+.budget-list.compact .budget-row:nth-child(n + 5) {
+  display: none;
+}
+
+.budget-row.over .progress-bar {
+  background: var(--food);
+}
+
+.budget-row-top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.55rem;
+}
+
+.budget-row .row-actions {
+  margin-top: 0.55rem;
+}
+
+.split-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) minmax(8rem, 1.4fr) auto auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.72rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 250, 240, 0.58);
+}
+
+.split-meter {
+  height: 0.65rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(23, 23, 17, 0.1);
+}
+
+.split-fill {
+  width: var(--value, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--finance);
+}
+
+.split-row small {
+  color: var(--muted);
+  font-family: ui-sans-serif, Avenir Next, Avenir, Segoe UI, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
 @keyframes pulse {
   70% {
     box-shadow: 0 0 0 0.7rem rgba(8, 127, 91, 0);
@@ -854,7 +964,8 @@ h1 {
 
   .hero-band,
   .section-grid,
-  .dashboard-bottom {
+  .dashboard-bottom,
+  .finance-board {
     grid-template-columns: 1fr;
   }
 
@@ -916,5 +1027,9 @@ h1 {
 
   .chart-average {
     text-align: left;
+  }
+
+  .split-row {
+    grid-template-columns: 1fr;
   }
 }

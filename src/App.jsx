@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  BadgeDollarSign,
   BookOpenText,
   Calendar,
   Check,
+  CreditCard,
   Dumbbell,
   Home,
+  Landmark,
+  PiggyBank,
   Plus,
   ReceiptText,
   Salad,
   Target,
   Trash2,
   Utensils,
+  WalletCards,
 } from "lucide-react";
 
 const STORAGE_KEY = "game-of-life.v1";
@@ -45,6 +50,17 @@ const domains = [
 
 const createId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
 const todayISO = () => formatLocalISODate(new Date());
+const currentMonthKey = () => todayISO().slice(0, 7);
+
+const defaultBudgetCategories = [
+  { id: createId(), name: "Housing", group: "Needs", limit: 1800 },
+  { id: createId(), name: "Groceries", group: "Needs", limit: 450 },
+  { id: createId(), name: "Restaurants", group: "Wants", limit: 250 },
+  { id: createId(), name: "Transportation", group: "Needs", limit: 300 },
+  { id: createId(), name: "Subscriptions", group: "Wants", limit: 120 },
+  { id: createId(), name: "Savings", group: "Savings", limit: 500 },
+  { id: createId(), name: "Debt", group: "Debt", limit: 200 },
+];
 
 function formatLocalISODate(date) {
   const year = date.getFullYear();
@@ -62,7 +78,10 @@ const defaultState = {
   finances: {
     entries: [],
     bills: [],
+    categories: defaultBudgetCategories,
+    debts: [],
     goals: [],
+    subscriptions: [],
   },
   fitness: {
     workouts: [],
@@ -121,7 +140,7 @@ function useHashRoute() {
 function App() {
   const [state, setState] = useLocalStorageState();
   const route = useHashRoute();
-  const [financeTab, setFinanceTab] = useState("entries");
+  const [financeTab, setFinanceTab] = useState("overview");
   const stats = useMemo(() => getStats(state), [state]);
 
   const actions = useMemo(() => createActions(setState), [setState]);
@@ -208,7 +227,32 @@ function createActions(setState) {
         ...state,
         finances: {
           ...state.finances,
-          entries: [{ id: createId(), ...entry, amount: Number(entry.amount || 0) }, ...state.finances.entries],
+          entries: [
+            {
+              id: createId(),
+              ...entry,
+              amount: Number(entry.amount || 0),
+              category: entry.category || "Uncategorized",
+            },
+            ...state.finances.entries,
+          ],
+        },
+      }));
+    },
+    addBudgetCategory(category) {
+      setState((state) => ({
+        ...state,
+        finances: {
+          ...state.finances,
+          categories: [
+            {
+              id: createId(),
+              name: category.name.trim(),
+              group: category.group,
+              limit: Number(category.limit || 0),
+            },
+            ...state.finances.categories,
+          ],
         },
       }));
     },
@@ -229,6 +273,43 @@ function createActions(setState) {
           goals: [
             { id: createId(), ...goal, target: Number(goal.target || 0), saved: Number(goal.saved || 0) },
             ...state.finances.goals,
+          ],
+        },
+      }));
+    },
+    addDebt(debt) {
+      setState((state) => ({
+        ...state,
+        finances: {
+          ...state.finances,
+          debts: [
+            {
+              id: createId(),
+              name: debt.name.trim(),
+              balance: Number(debt.balance || 0),
+              apr: Number(debt.apr || 0),
+              minimum: Number(debt.minimum || 0),
+            },
+            ...state.finances.debts,
+          ],
+        },
+      }));
+    },
+    addSubscription(subscription) {
+      setState((state) => ({
+        ...state,
+        finances: {
+          ...state.finances,
+          subscriptions: [
+            {
+              id: createId(),
+              name: subscription.name.trim(),
+              amount: Number(subscription.amount || 0),
+              billingDay: Number(subscription.billingDay || 1),
+              category: subscription.category || "Subscriptions",
+              active: true,
+            },
+            ...state.finances.subscriptions,
           ],
         },
       }));
@@ -271,8 +352,11 @@ function createActions(setState) {
         meal: ["food", "meals"],
         recipe: ["food", "recipes"],
         financeEntry: ["finances", "entries"],
+        budgetCategory: ["finances", "categories"],
         bill: ["finances", "bills"],
+        debt: ["finances", "debts"],
         goal: ["finances", "goals"],
+        subscription: ["finances", "subscriptions"],
         workout: ["fitness", "workouts"],
         habit: ["fitness", "habits"],
       };
@@ -292,6 +376,7 @@ function getStats(state) {
   const calorieTarget = Number(state.food.calorieTarget || 0);
   const sevenDayCalories = getSevenDayCalories(state.food.meals);
   const sevenDayAverage = Math.round(sevenDayCalories.reduce((sum, day) => sum + day.calories, 0) / 7);
+  const financeStats = getFinanceStats(state.finances);
   const income = state.finances.entries
     .filter((entry) => entry.type === "income")
     .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
@@ -320,6 +405,7 @@ function getStats(state) {
       expenses,
       balance: income - expenses,
       dueBills: state.finances.bills.filter((bill) => !bill.paid).length,
+      ...financeStats,
     },
     fitness: {
       todaysWorkouts,
@@ -327,6 +413,68 @@ function getStats(state) {
       habitTotal: state.fitness.habits.length,
       totalMinutes: state.fitness.workouts.reduce((sum, workout) => sum + Number(workout.minutes || 0), 0),
     },
+  };
+}
+
+function getFinanceStats(finances) {
+  const month = currentMonthKey();
+  const monthlyEntries = finances.entries.filter((entry) => entry.date?.startsWith(month));
+  const monthlyIncome = monthlyEntries
+    .filter((entry) => entry.type === "income")
+    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const monthlyExpenses = monthlyEntries
+    .filter((entry) => entry.type === "expense")
+    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const categoryRows = finances.categories.map((category) => {
+    const spent = monthlyEntries
+      .filter((entry) => entry.type === "expense" && entry.category === category.name)
+      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+    const limit = Number(category.limit || 0);
+    return {
+      ...category,
+      limit,
+      remaining: limit - spent,
+      spent,
+      progress: limit ? Math.min(100, Math.round((spent / limit) * 100)) : 0,
+    };
+  });
+  const budgeted = categoryRows.reduce((sum, category) => sum + category.limit, 0);
+  const budgetSpent = categoryRows.reduce((sum, category) => sum + category.spent, 0);
+  const overBudget = categoryRows.reduce((sum, category) => sum + Math.max(0, category.spent - category.limit), 0);
+  const groupRows = ["Needs", "Wants", "Savings", "Debt"].map((group) => {
+    const categories = categoryRows.filter((category) => category.group === group);
+    const planned = categories.reduce((sum, category) => sum + category.limit, 0);
+    const spent = categories.reduce((sum, category) => sum + category.spent, 0);
+    return {
+      group,
+      planned,
+      spent,
+      percentOfIncome: monthlyIncome ? Math.round((spent / monthlyIncome) * 100) : 0,
+    };
+  });
+  const subscriptionsTotal = finances.subscriptions
+    .filter((subscription) => subscription.active !== false)
+    .reduce((sum, subscription) => sum + Number(subscription.amount || 0), 0);
+  const debtTotal = finances.debts.reduce((sum, debt) => sum + Number(debt.balance || 0), 0);
+  const debtMinimums = finances.debts.reduce((sum, debt) => sum + Number(debt.minimum || 0), 0);
+  const unpaidBills = finances.bills.filter((bill) => !bill.paid);
+  const upcomingBills = [...unpaidBills].sort((a, b) => String(a.due).localeCompare(String(b.due))).slice(0, 4);
+
+  return {
+    budgetRemaining: budgeted - budgetSpent,
+    budgetSpent,
+    budgeted,
+    categoryRows,
+    debtMinimums,
+    debtTotal,
+    groupRows,
+    monthlyBalance: monthlyIncome - monthlyExpenses,
+    monthlyEntries,
+    monthlyExpenses,
+    monthlyIncome,
+    overBudget,
+    subscriptionsTotal,
+    upcomingBills,
   };
 }
 
@@ -359,7 +507,16 @@ function formatChartDate(date) {
 
 function domainCount(state, id) {
   if (id === "food") return state.food.meals.length + state.food.recipes.length;
-  if (id === "finances") return state.finances.entries.length + state.finances.bills.length + state.finances.goals.length;
+  if (id === "finances") {
+    return (
+      state.finances.entries.length +
+      state.finances.bills.length +
+      state.finances.categories.length +
+      state.finances.debts.length +
+      state.finances.goals.length +
+      state.finances.subscriptions.length
+    );
+  }
   if (id === "fitness") return state.fitness.workouts.length + state.fitness.habits.length;
   return 0;
 }
@@ -671,18 +828,25 @@ function RecipeCard({ actions, recipe }) {
 }
 
 function FinancesPage({ actions, activeTab, setActiveTab, state, stats }) {
+  const tabs = ["overview", "budget", "entries", "bills", "goals", "debts", "subscriptions"];
+
   return (
     <>
-      <PageHeader domainId="finances" subtitle="A light ledger for morning money visibility: what came in, what went out, what is due, and what is growing." />
+      <PageHeader
+        domainId="finances"
+        subtitle="A full local budgeting desk for cashflow, spending categories, bills, goals, debt, subscriptions, and monthly planning."
+      />
       <section className="overview-grid">
-        <StatCard accent="finance" Icon={ReceiptText} detail="income minus expenses" label="Balance" value={currency(stats.balance)} />
-        <StatCard accent="finance" Icon={Check} detail="logged total" label="Income" value={currency(stats.income)} />
-        <StatCard accent="finance" Icon={Target} detail="logged total" label="Expenses" value={currency(stats.expenses)} />
+        <StatCard accent="finance" Icon={WalletCards} detail="this month" label="Cashflow" value={currency(stats.monthlyBalance)} />
+        <StatCard accent="finance" Icon={Check} detail="this month" label="Income" value={currency(stats.monthlyIncome)} />
+        <StatCard accent="finance" Icon={Target} detail="this month" label="Spent" value={currency(stats.monthlyExpenses)} />
         <StatCard accent="finance" Icon={Calendar} detail="still due" label="Bills" value={stats.dueBills} />
+        <StatCard accent="finance" Icon={CreditCard} detail="monthly total" label="Subscriptions" value={currency(stats.subscriptionsTotal)} />
+        <StatCard accent="finance" Icon={Landmark} detail="tracked total" label="Debt" value={currency(stats.debtTotal)} />
       </section>
       <Panel className="finance-accent">
         <div className="pill-tabs" role="group" aria-label="Finance sections">
-          {["entries", "bills", "goals"].map((tab) => (
+          {tabs.map((tab) => (
             <button
               aria-pressed={activeTab === tab}
               className="pill-tab"
@@ -694,15 +858,95 @@ function FinancesPage({ actions, activeTab, setActiveTab, state, stats }) {
             </button>
           ))}
         </div>
-        {activeTab === "entries" && <FinanceEntries actions={actions} entries={state.finances.entries} />}
+        {activeTab === "overview" && <FinanceOverview state={state} stats={stats} />}
+        {activeTab === "budget" && <BudgetPlanner actions={actions} categories={state.finances.categories} stats={stats} />}
+        {activeTab === "entries" && (
+          <FinanceEntries actions={actions} categories={state.finances.categories} entries={state.finances.entries} />
+        )}
         {activeTab === "bills" && <Bills actions={actions} bills={state.finances.bills} />}
         {activeTab === "goals" && <Goals actions={actions} goals={state.finances.goals} />}
+        {activeTab === "debts" && <Debts actions={actions} debts={state.finances.debts} stats={stats} />}
+        {activeTab === "subscriptions" && (
+          <Subscriptions actions={actions} categories={state.finances.categories} stats={stats} subscriptions={state.finances.subscriptions} />
+        )}
       </Panel>
     </>
   );
 }
 
-function FinanceEntries({ actions, entries }) {
+function FinanceOverview({ state, stats }) {
+  return (
+    <div className="finance-board">
+      <section className="finance-block">
+        <SectionTitle Icon={PiggyBank} title="Budget Health" />
+        <div className="money-metric-grid">
+          <Metric label="Budgeted" value={currency(stats.budgeted)} />
+          <Metric label="Spent" value={currency(stats.budgetSpent)} />
+          <Metric label={stats.budgetRemaining >= 0 ? "Left" : "Over"} value={currency(Math.abs(stats.budgetRemaining))} />
+        </div>
+        <BudgetCategoryList actions={null} categories={stats.categoryRows.slice(0, 6)} compact />
+      </section>
+      <section className="finance-block">
+        <SectionTitle Icon={BadgeDollarSign} title="Spending Mix" />
+        <BudgetSplit groupRows={stats.groupRows} income={stats.monthlyIncome} />
+      </section>
+      <section className="finance-block">
+        <SectionTitle Icon={Calendar} title="Upcoming Bills" />
+        <List items={stats.upcomingBills} empty="No unpaid bills tracked.">
+          {(bill) => (
+            <ListRow
+              actions={null}
+              id={bill.id}
+              subtitle={`${currency(Number(bill.amount))} / due ${formatDate(bill.due)}`}
+              title={bill.name}
+              type="bill"
+            />
+          )}
+        </List>
+      </section>
+      <section className="finance-block">
+        <SectionTitle Icon={Target} title="Goal Progress" />
+        <List items={state.finances.goals.slice(0, 4)} empty="Savings goals will show here.">
+          {(goal) => <GoalProgressRow actions={null} goal={goal} />}
+        </List>
+      </section>
+    </div>
+  );
+}
+
+function BudgetPlanner({ actions, categories, stats }) {
+  return (
+    <div className="section-grid">
+      <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addBudgetCategory)}>
+        <Field id="categoryName" label="Category" name="name" placeholder="Car maintenance" required />
+        <Field id="categoryLimit" label="Monthly limit" min="0" name="limit" placeholder="150" required step="0.01" type="number" />
+        <div className="field">
+          <label htmlFor="categoryGroup">Group</label>
+          <select id="categoryGroup" name="group">
+            <option>Needs</option>
+            <option>Wants</option>
+            <option>Savings</option>
+            <option>Debt</option>
+          </select>
+        </div>
+        <button className="primary-button" type="submit">
+          <Plus className="button-icon" />
+          Add category
+        </button>
+      </form>
+      <div>
+        <div className="money-metric-grid">
+          <Metric label="Planned" value={currency(stats.budgeted)} />
+          <Metric label="Remaining" value={currency(stats.budgetRemaining)} />
+          <Metric label="Over budget" value={currency(stats.overBudget)} />
+        </div>
+        <BudgetCategoryList actions={actions} categories={stats.categoryRows} />
+      </div>
+    </div>
+  );
+}
+
+function FinanceEntries({ actions, categories, entries }) {
   return (
     <div className="section-grid">
       <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addFinanceEntry)}>
@@ -713,6 +957,15 @@ function FinanceEntries({ actions, entries }) {
           <select id="entryType" name="type">
             <option value="expense">Expense</option>
             <option value="income">Income</option>
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="entryCategory">Category</label>
+          <select id="entryCategory" name="category">
+            <option>Uncategorized</option>
+            {categories.map((category) => (
+              <option key={category.id}>{category.name}</option>
+            ))}
           </select>
         </div>
         <Field id="entryDate" label="Date" name="date" type="date" value={todayISO()} />
@@ -726,7 +979,7 @@ function FinanceEntries({ actions, entries }) {
           <ListRow
             actions={actions}
             id={entry.id}
-            subtitle={`${titleCase(entry.type)} / ${currency(Number(entry.amount))} / ${formatDate(entry.date)}`}
+            subtitle={`${titleCase(entry.type)} / ${entry.category || "Uncategorized"} / ${currency(Number(entry.amount))} / ${formatDate(entry.date)}`}
             title={entry.name}
             type="financeEntry"
           />
@@ -778,28 +1031,83 @@ function Goals({ actions, goals }) {
         </button>
       </form>
       <List items={goals} empty="Savings goals will show here.">
-        {(goal) => {
-          const target = Number(goal.target || 0);
-          const saved = Number(goal.saved || 0);
-          const progress = target ? Math.min(100, Math.round((saved / target) * 100)) : 0;
-          return (
-            <article className="list-row">
-              <div>
-                <p className="row-title">{goal.name}</p>
-                <p className="row-subtitle">
-                  {currency(saved)} saved of {currency(target)}
-                </p>
-                <div className="progress-shell">
-                  <div className="progress-bar" style={{ "--value": `${progress}%` }}></div>
-                </div>
-              </div>
-              <div className="row-actions">
-                <DeleteButton actions={actions} id={goal.id} type="goal" />
-              </div>
-            </article>
-          );
-        }}
+        {(goal) => <GoalProgressRow actions={actions} goal={goal} />}
       </List>
+    </div>
+  );
+}
+
+function Debts({ actions, debts, stats }) {
+  return (
+    <div className="section-grid">
+      <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addDebt)}>
+        <Field id="debtName" label="Debt" name="name" placeholder="Credit card, car loan..." required />
+        <Field id="debtBalance" label="Balance" min="0" name="balance" placeholder="3200" required step="0.01" type="number" />
+        <Field id="debtApr" label="APR %" min="0" name="apr" placeholder="19.99" step="0.01" type="number" />
+        <Field id="debtMinimum" label="Min payment" min="0" name="minimum" placeholder="95" step="0.01" type="number" />
+        <button className="primary-button" type="submit">
+          <Plus className="button-icon" />
+          Add debt
+        </button>
+      </form>
+      <div>
+        <div className="money-metric-grid">
+          <Metric label="Debt total" value={currency(stats.debtTotal)} />
+          <Metric label="Min payments" value={currency(stats.debtMinimums)} />
+        </div>
+        <List items={debts} empty="Track debts here for payoff visibility.">
+          {(debt) => (
+            <ListRow
+              actions={actions}
+              id={debt.id}
+              subtitle={`${currency(Number(debt.balance))} balance / ${Number(debt.apr || 0)}% APR / ${currency(Number(debt.minimum))} min`}
+              title={debt.name}
+              type="debt"
+            />
+          )}
+        </List>
+      </div>
+    </div>
+  );
+}
+
+function Subscriptions({ actions, categories, stats, subscriptions }) {
+  return (
+    <div className="section-grid">
+      <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addSubscription)}>
+        <Field id="subscriptionName" label="Subscription" name="name" placeholder="Netflix, gym, cloud storage..." required />
+        <Field id="subscriptionAmount" label="Monthly amount" min="0" name="amount" placeholder="19.99" required step="0.01" type="number" />
+        <Field id="subscriptionDay" label="Billing day" max="31" min="1" name="billingDay" placeholder="15" type="number" />
+        <div className="field">
+          <label htmlFor="subscriptionCategory">Category</label>
+          <select id="subscriptionCategory" name="category">
+            {categories.map((category) => (
+              <option key={category.id}>{category.name}</option>
+            ))}
+          </select>
+        </div>
+        <button className="primary-button" type="submit">
+          <Plus className="button-icon" />
+          Add subscription
+        </button>
+      </form>
+      <div>
+        <div className="money-metric-grid">
+          <Metric label="Monthly total" value={currency(stats.subscriptionsTotal)} />
+          <Metric label="Yearly run rate" value={currency(stats.subscriptionsTotal * 12)} />
+        </div>
+        <List items={subscriptions} empty="Recurring subscriptions will show here.">
+          {(subscription) => (
+            <ListRow
+              actions={actions}
+              id={subscription.id}
+              subtitle={`${currency(Number(subscription.amount))}/mo / bills on day ${subscription.billingDay || 1} / ${subscription.category}`}
+              title={subscription.name}
+              type="subscription"
+            />
+          )}
+        </List>
+      </div>
     </div>
   );
 }
@@ -915,6 +1223,97 @@ function StatCard({ accent, detail, Icon, label, value }) {
   );
 }
 
+function Metric({ label, value }) {
+  return (
+    <div className="metric-tile">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function BudgetCategoryList({ actions, categories, compact = false }) {
+  return (
+    <div className={`budget-list ${compact ? "compact" : ""}`}>
+      {categories.map((category) => (
+        <article className={`budget-row ${category.remaining < 0 ? "over" : ""}`} key={category.id}>
+          <div className="budget-row-top">
+            <div>
+              <p className="row-title">{category.name}</p>
+              <p className="row-subtitle">
+                {category.group} / {currency(category.spent)} of {currency(category.limit)}
+              </p>
+            </div>
+            <span className="tag">{category.remaining >= 0 ? `${currency(category.remaining)} left` : `${currency(Math.abs(category.remaining))} over`}</span>
+          </div>
+          <div className="progress-shell">
+            <div className="progress-bar" style={{ "--value": `${Math.min(100, category.progress)}%` }}></div>
+          </div>
+          {actions && (
+            <div className="row-actions">
+              <DeleteButton actions={actions} id={category.id} type="budgetCategory" />
+            </div>
+          )}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function BudgetSplit({ groupRows, income }) {
+  const guide = {
+    Needs: 50,
+    Wants: 30,
+    Savings: 20,
+    Debt: 0,
+  };
+
+  return (
+    <div className="split-stack">
+      {groupRows.map((row) => (
+        <article className="split-row" key={row.group}>
+          <div className="split-copy">
+            <p className="row-title">{row.group}</p>
+            <p className="row-subtitle">
+              {currency(row.spent)} spent / {currency(row.planned)} planned
+            </p>
+          </div>
+          <div className="split-meter">
+            <div className="split-fill" style={{ "--value": `${Math.min(100, row.percentOfIncome)}%` }}></div>
+          </div>
+          <span className="tag">{income ? `${row.percentOfIncome}%` : "0%"}</span>
+          {guide[row.group] > 0 && <small>guide: {guide[row.group]}%</small>}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function GoalProgressRow({ actions, goal }) {
+  const target = Number(goal.target || 0);
+  const saved = Number(goal.saved || 0);
+  const progress = target ? Math.min(100, Math.round((saved / target) * 100)) : 0;
+
+  return (
+    <article className="list-row">
+      <div>
+        <p className="row-title">{goal.name}</p>
+        <p className="row-subtitle">
+          {currency(saved)} saved of {currency(target)}
+        </p>
+        <div className="progress-shell">
+          <div className="progress-bar" style={{ "--value": `${progress}%` }}></div>
+        </div>
+      </div>
+      {actions && (
+        <div className="row-actions">
+          <DeleteButton actions={actions} id={goal.id} type="goal" />
+        </div>
+      )}
+    </article>
+  );
+}
+
 function CalorieBarChart({ average, days, target }) {
   const maxCalories = Math.max(target, average, ...days.map((day) => day.calories), 1);
 
@@ -982,9 +1381,11 @@ function ListRow({ actions, id, subtitle, title, type }) {
         <p className="row-title">{title}</p>
         <p className="row-subtitle">{subtitle}</p>
       </div>
-      <div className="row-actions">
-        <DeleteButton actions={actions} id={id} type={type} />
-      </div>
+      {actions && (
+        <div className="row-actions">
+          <DeleteButton actions={actions} id={id} type={type} />
+        </div>
+      )}
     </article>
   );
 }
