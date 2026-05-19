@@ -498,6 +498,14 @@ function getSevenDayCalories(meals) {
   return days;
 }
 
+function isWithinLastSevenDays(dateString) {
+  if (!dateString) return false;
+  const today = new Date(`${todayISO()}T12:00:00`);
+  const date = new Date(`${dateString}T12:00:00`);
+  const ageInDays = Math.floor((today - date) / 86400000);
+  return ageInDays >= 0 && ageInDays < 7;
+}
+
 function formatChartDate(date) {
   return new Intl.DateTimeFormat("en-US", {
     month: "numeric",
@@ -676,13 +684,15 @@ function DomainCard({ domain, state }) {
 }
 
 function FoodPage({ actions, state, stats }) {
+  const recentMeals = state.food.meals.filter((meal) => isWithinLastSevenDays(meal.date));
+
   return (
     <>
       <PageHeader domainId="food" subtitle="Track the day without needing a full nutrition database. Meals and recipes stay private in this browser." />
       <section className="overview-grid">
         <StatCard accent="food" Icon={Utensils} detail="calories today" label="Eaten" value={stats.calories} />
         <StatCard accent="food" Icon={Target} detail="against target" label="Left" value={stats.remaining} />
-        <StatCard accent="food" Icon={Calendar} detail="logged total" label="Meals" value={state.food.meals.length} />
+        <StatCard accent="food" Icon={Calendar} detail="last 7 days" label="Meals" value={recentMeals.length} />
         <StatCard accent="food" Icon={Check} detail="saved ideas" label="Recipes" value={state.food.recipes.length} />
       </section>
       <CalorieBarChart days={stats.sevenDayCalories} average={stats.sevenDayAverage} target={state.food.calorieTarget} />
@@ -696,7 +706,7 @@ function FoodPage({ actions, state, stats }) {
         <Panel className="meals-panel">
           <SectionTitle Icon={Utensils} title="Meals" />
           <div className="scroll-list meals-scroll">
-            <List items={state.food.meals} empty="No meals yet. Add the first one from the tracker.">
+            <List items={recentMeals} empty="No meals logged in the last 7 days.">
               {(meal) => (
                 <ListRow
                   actions={actions}
