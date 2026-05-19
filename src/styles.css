@@ -506,6 +506,10 @@ h1 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.full-span {
+  grid-column: 1 / -1;
+}
+
 .field {
   display: grid;
   gap: 0.35rem;
@@ -589,6 +593,20 @@ h1 {
 .list-stack {
   display: grid;
   gap: 0.55rem;
+}
+
+.scroll-list {
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-gutter: stable;
+}
+
+.meals-scroll {
+  max-height: min(34rem, 58vh);
+}
+
+.meals-panel {
+  align-self: start;
 }
 
 .list-row {

@@ -214,6 +214,7 @@ function createActions(setState) {
             {
               id: createId(),
               name: recipe.name.trim(),
+              calories: Number(recipe.calories || 0),
               ingredients: recipe.ingredients.trim(),
               instructions: recipe.instructions.trim(),
             },
@@ -690,21 +691,23 @@ function FoodPage({ actions, state, stats }) {
           <SectionTitle Icon={Target} title="Calorie Tracker" />
           <CalorieTargetForm actions={actions} progress={stats.progress} target={state.food.calorieTarget} />
           <hr />
-          <MealForm actions={actions} />
+          <MealForm actions={actions} recipes={state.food.recipes} />
         </Panel>
-        <Panel>
+        <Panel className="meals-panel">
           <SectionTitle Icon={Utensils} title="Meals" />
-          <List items={state.food.meals} empty="No meals yet. Add the first one from the tracker.">
-            {(meal) => (
-              <ListRow
-                actions={actions}
-                id={meal.id}
-                subtitle={`${meal.kind} / ${meal.calories} cal / ${formatDate(meal.date)}`}
-                title={meal.name}
-                type="meal"
-              />
-            )}
-          </List>
+          <div className="scroll-list meals-scroll">
+            <List items={state.food.meals} empty="No meals yet. Add the first one from the tracker.">
+              {(meal) => (
+                <ListRow
+                  actions={actions}
+                  id={meal.id}
+                  subtitle={`${meal.kind} / ${meal.calories} cal / ${formatDate(meal.date)}`}
+                  title={meal.name}
+                  type="meal"
+                />
+              )}
+            </List>
+          </div>
         </Panel>
         <Panel>
           <SectionTitle Icon={Salad} title="Recipe Log" />
@@ -749,15 +752,81 @@ function CalorieTargetForm({ actions, progress, target }) {
   );
 }
 
-function MealForm({ actions }) {
+function MealForm({ actions, recipes }) {
+  const [meal, setMeal] = useState({
+    calories: "",
+    date: todayISO(),
+    kind: "Breakfast",
+    name: "",
+    recipeId: "",
+  });
+
+  function updateMeal(field, value) {
+    setMeal((current) => ({ ...current, [field]: value }));
+  }
+
+  function chooseRecipe(recipeId) {
+    const recipe = recipes.find((item) => item.id === recipeId);
+    setMeal((current) => ({
+      ...current,
+      calories: recipe?.calories ? String(recipe.calories) : "",
+      name: recipe?.name || "",
+      recipeId,
+    }));
+  }
+
   return (
-    <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addMeal)}>
-      <Field id="mealName" label="Meal" name="name" placeholder="Breakfast bowl" required />
-      <Field id="mealCalories" label="Calories" min="0" name="calories" placeholder="520" required type="number" />
-      <Field id="mealDate" label="Date" name="date" type="date" value={todayISO()} />
+    <form
+      className="form-grid two-col"
+      onSubmit={(event) => {
+        event.preventDefault();
+        actions.addMeal(meal);
+        setMeal({ calories: "", date: todayISO(), kind: "Breakfast", name: "", recipeId: "" });
+      }}
+    >
+      <div className="field full-span">
+        <label htmlFor="mealRecipe">Use saved recipe</label>
+        <select id="mealRecipe" name="recipeId" onChange={(event) => chooseRecipe(event.target.value)} value={meal.recipeId}>
+          <option value="">Manual meal</option>
+          {recipes.map((recipe) => (
+            <option key={recipe.id} value={recipe.id}>
+              {recipe.name}
+              {recipe.calories ? ` / ${recipe.calories} cal` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor="mealName">Meal</label>
+        <input
+          id="mealName"
+          name="name"
+          onChange={(event) => updateMeal("name", event.target.value)}
+          placeholder="Breakfast bowl"
+          required
+          value={meal.name}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="mealCalories">Calories</label>
+        <input
+          id="mealCalories"
+          min="0"
+          name="calories"
+          onChange={(event) => updateMeal("calories", event.target.value)}
+          placeholder="520"
+          required
+          type="number"
+          value={meal.calories}
+        />
+      </div>
+      <div className="field">
+        <label htmlFor="mealDate">Date</label>
+        <input id="mealDate" name="date" onChange={(event) => updateMeal("date", event.target.value)} type="date" value={meal.date} />
+      </div>
       <div className="field">
         <label htmlFor="mealKind">Kind</label>
-        <select id="mealKind" name="kind">
+        <select id="mealKind" name="kind" onChange={(event) => updateMeal("kind", event.target.value)} value={meal.kind}>
           <option>Breakfast</option>
           <option>Lunch</option>
           <option>Dinner</option>
@@ -776,6 +845,7 @@ function RecipeForm({ actions }) {
   return (
     <form className="form-grid" onSubmit={(event) => handleSubmit(event, actions.addRecipe)}>
       <Field id="recipeName" label="Recipe" name="name" placeholder="Lemon chicken rice bowls" required />
+      <Field id="recipeCalories" label="Calories" min="0" name="calories" placeholder="620" type="number" />
       <div className="field">
         <label htmlFor="recipeIngredients">Ingredients</label>
         <textarea
@@ -798,6 +868,7 @@ function RecipeForm({ actions }) {
 
 function RecipeCard({ actions, recipe }) {
   const sections = [
+    { label: "Calories", value: recipe.calories ? `${recipe.calories} cal` : "" },
     { label: "Ingredients", value: recipe.ingredients },
     { label: "Instructions", value: recipe.instructions },
     { label: "Notes", value: !recipe.ingredients && !recipe.instructions ? recipe.notes : "" },
