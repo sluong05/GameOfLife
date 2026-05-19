@@ -601,12 +601,25 @@ h1 {
   scrollbar-gutter: stable;
 }
 
+.food-entry-panel,
+.meals-panel {
+  height: clamp(28rem, 44vw, 36rem);
+}
+
+.food-entry-panel {
+  overflow: hidden;
+}
+
 .meals-scroll {
-  max-height: min(34rem, 58vh);
+  max-height: none;
+  min-height: 0;
+  flex: 1;
 }
 
 .meals-panel {
   align-self: start;
+  display: flex;
+  flex-direction: column;
 }
 
 .list-row {
@@ -1045,6 +1058,15 @@ h1 {
 
   .chart-average {
     text-align: left;
+  }
+
+  .food-entry-panel,
+  .meals-panel {
+    height: auto;
+  }
+
+  .meals-scroll {
+    max-height: 26rem;
   }
 
   .split-row {

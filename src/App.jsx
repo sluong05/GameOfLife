@@ -697,7 +697,7 @@ function FoodPage({ actions, state, stats }) {
       </section>
       <CalorieBarChart days={stats.sevenDayCalories} average={stats.sevenDayAverage} target={state.food.calorieTarget} />
       <section className="section-grid food-accent">
-        <Panel>
+        <Panel className="food-entry-panel">
           <SectionTitle Icon={Target} title="Calorie Tracker" />
           <CalorieTargetForm actions={actions} progress={stats.progress} target={state.food.calorieTarget} />
           <hr />
