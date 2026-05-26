@@ -549,6 +549,63 @@ h1 {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent, var(--ink)), transparent 82%);
 }
 
+.estimate-input-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.estimate-button {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid rgba(217, 79, 43, 0.3);
+  border-radius: var(--radius);
+  padding: 0 0.65rem;
+  background: rgba(217, 79, 43, 0.08);
+  color: #9f2a16;
+  font-family: ui-sans-serif, Avenir Next, Avenir, Segoe UI, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 900;
+  justify-content: center;
+}
+
+.estimate-button svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.estimate-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.estimate-status {
+  min-height: 2.2rem;
+  margin: 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-family: ui-sans-serif, Avenir Next, Avenir, Segoe UI, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.estimate-status.success {
+  border-color: rgba(8, 127, 91, 0.26);
+  background: rgba(8, 127, 91, 0.07);
+  color: #086544;
+}
+
+.estimate-status.error {
+  border-color: rgba(217, 79, 43, 0.28);
+  background: rgba(217, 79, 43, 0.07);
+  color: #9f2a16;
+}
+
 .primary-button,
 .ghost-button,
 .danger-button,
@@ -603,7 +660,7 @@ h1 {
 
 .food-entry-panel,
 .meals-panel {
-  height: clamp(28rem, 44vw, 36rem);
+  height: clamp(36rem, 54vw, 42rem);
 }
 
 .food-entry-panel {
@@ -1000,6 +1057,15 @@ h1 {
     grid-template-columns: 1fr;
   }
 
+  .food-entry-panel,
+  .meals-panel {
+    height: auto;
+  }
+
+  .meals-scroll {
+    max-height: 26rem;
+  }
+
   .bar-chart {
     gap: 0.45rem;
   }
@@ -1058,15 +1124,6 @@ h1 {
 
   .chart-average {
     text-align: left;
-  }
-
-  .food-entry-panel,
-  .meals-panel {
-    height: auto;
-  }
-
-  .meals-scroll {
-    max-height: 26rem;
   }
 
   .split-row {

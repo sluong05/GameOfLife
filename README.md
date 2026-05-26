@@ -6,6 +6,7 @@ A local-first React morning dashboard for food, finances, fitness, and daily foc
 
 - Morning dashboard with quick overview cards
 - Food page with a calorie target, 7-day calorie bar chart, scrollable meal log, and structured recipes that can become meals
+- Optional AI calorie estimate button powered by Puter.js when a meal description is entered
 - Finances page with monthly cashflow, budget categories, spending mix, income/expense entries, bills, savings goals, debts, and subscriptions
 - Fitness page with workout logs and daily habit checkboxes
 - All data is stored in the browser with `localStorage`
@@ -35,3 +36,5 @@ This project can be deployed as a static site. For GitHub Pages, build with `npm
 ## Data
 
 Data stays in the current browser under the `game-of-life.v1` localStorage key. Clearing site data will clear the dashboard.
+
+AI calorie estimates are requested only when the `Estimate` button is pressed. That request sends the entered meal description to Puter.js for estimation; saved dashboard data otherwise remains in localStorage.

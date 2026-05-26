@@ -13,6 +13,7 @@ import {
   Plus,
   ReceiptText,
   Salad,
+  Sparkles,
   Target,
   Trash2,
   Utensils,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 
 const STORAGE_KEY = "game-of-life.v1";
+let puterLoadPromise;
 
 const domains = [
   {
@@ -67,6 +69,26 @@ function formatLocalISODate(date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function loadPuter() {
+  if (window.puter) return Promise.resolve(window.puter);
+
+  if (!puterLoadPromise) {
+    puterLoadPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://js.puter.com/v2/";
+      script.async = true;
+      script.addEventListener("load", () => resolve(window.puter));
+      script.addEventListener("error", () => reject(new Error("Unable to load AI service")));
+      document.head.append(script);
+    }).catch((error) => {
+      puterLoadPromise = undefined;
+      throw error;
+    });
+  }
+
+  return puterLoadPromise;
 }
 
 const defaultState = {
@@ -770,6 +792,7 @@ function MealForm({ actions, recipes }) {
     name: "",
     recipeId: "",
   });
+  const [estimateState, setEstimateState] = useState({ status: "idle", message: "" });
 
   function updateMeal(field, value) {
     setMeal((current) => ({ ...current, [field]: value }));
@@ -783,6 +806,37 @@ function MealForm({ actions, recipes }) {
       name: recipe?.name || "",
       recipeId,
     }));
+    setEstimateState({ status: "idle", message: "" });
+  }
+
+  async function estimateCalories() {
+    const description = meal.name.trim();
+    if (!description) {
+      setEstimateState({ status: "error", message: "Enter a meal description first." });
+      return;
+    }
+
+    setEstimateState({ status: "loading", message: "Estimating..." });
+
+    try {
+      const puter = await loadPuter();
+      const response = await puter.ai.chat(
+        `Estimate the total calories for this meal: "${description}". Use a reasonable typical serving if quantities are missing. Return only JSON in this shape: {"calories": 520, "basis": "brief serving assumption"}. Do not use a calorie range.`,
+        { model: "openai/gpt-5.4-nano" },
+      );
+      const text = extractAiText(response);
+      const estimate = parseCalorieEstimate(text);
+
+      if (!estimate) throw new Error("No calorie estimate returned");
+
+      setMeal((current) => ({ ...current, calories: String(estimate.calories) }));
+      setEstimateState({
+        status: "success",
+        message: `Estimated ${estimate.calories} cal${estimate.basis ? `: ${estimate.basis}` : ""}. Adjust if your portion differs.`,
+      });
+    } catch {
+      setEstimateState({ status: "error", message: "Estimate unavailable right now. Enter calories manually." });
+    }
   }
 
   return (
@@ -792,6 +846,7 @@ function MealForm({ actions, recipes }) {
         event.preventDefault();
         actions.addMeal(meal);
         setMeal({ calories: "", date: todayISO(), kind: "Breakfast", name: "", recipeId: "" });
+        setEstimateState({ status: "idle", message: "" });
       }}
     >
       <div className="field full-span">
@@ -819,17 +874,34 @@ function MealForm({ actions, recipes }) {
       </div>
       <div className="field">
         <label htmlFor="mealCalories">Calories</label>
-        <input
-          id="mealCalories"
-          min="0"
-          name="calories"
-          onChange={(event) => updateMeal("calories", event.target.value)}
-          placeholder="520"
-          required
-          type="number"
-          value={meal.calories}
-        />
+        <div className="estimate-input-row">
+          <input
+            id="mealCalories"
+            min="0"
+            name="calories"
+            onChange={(event) => updateMeal("calories", event.target.value)}
+            placeholder="520"
+            required
+            type="number"
+            value={meal.calories}
+          />
+          <button
+            className="estimate-button"
+            disabled={estimateState.status === "loading"}
+            onClick={estimateCalories}
+            title="Estimate calories with AI"
+            type="button"
+          >
+            <Sparkles />
+            {estimateState.status === "loading" ? "Thinking" : "Estimate"}
+          </button>
+        </div>
       </div>
+      {estimateState.message && (
+        <p className={`estimate-status ${estimateState.status} full-span`} role="status">
+          {estimateState.message}
+        </p>
+      )}
       <div className="field">
         <label htmlFor="mealDate">Date</label>
         <input id="mealDate" name="date" onChange={(event) => updateMeal("date", event.target.value)} type="date" value={meal.date} />
@@ -849,6 +921,36 @@ function MealForm({ actions, recipes }) {
       </button>
     </form>
   );
+}
+
+function extractAiText(response) {
+  if (typeof response === "string") return response;
+  if (typeof response?.message?.content === "string") return response.message.content;
+  if (Array.isArray(response?.message?.content)) {
+    return response.message.content.map((part) => part.text || "").join("");
+  }
+  return String(response || "");
+}
+
+function parseCalorieEstimate(text) {
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      const calories = Math.round(Number(parsed.calories));
+      if (Number.isFinite(calories) && calories >= 0) {
+        return { calories, basis: typeof parsed.basis === "string" ? parsed.basis.trim() : "" };
+      }
+    } catch {
+      // Fall through to numeric extraction if the model adds non-JSON text.
+    }
+  }
+
+  const numericMatch = text.match(/\b(\d{1,5})\b/);
+  if (!numericMatch) return null;
+
+  return { calories: Math.round(Number(numericMatch[1])), basis: "" };
 }
 
 function RecipeForm({ actions }) {
