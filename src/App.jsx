@@ -1,1623 +1,331 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
-  BadgeDollarSign,
-  BookOpenText,
-  Calendar,
-  Check,
-  CreditCard,
-  Dumbbell,
-  Home,
-  Landmark,
-  PiggyBank,
-  Plus,
-  ReceiptText,
-  Salad,
-  Sparkles,
-  Target,
-  Trash2,
-  Utensils,
-  WalletCards,
+  Award, BookOpen, Brain, CalendarDays, Check, ChevronRight, CircleDot, Coffee,
+  Compass, Dumbbell, Flame, Heart, Home, Leaf, MapPin, Menu, Moon, MoreHorizontal,
+  PenLine, Plus, RotateCcw, ShieldCheck, Sparkles, Target, Trophy, Users, Wallet,
+  X, Zap,
 } from "lucide-react";
 
-const STORAGE_KEY = "game-of-life.v1";
-let puterLoadPromise;
+const STORAGE_KEY = "game-of-life.v2";
+const DAY = 86400000;
 
-const domains = [
-  {
-    id: "food",
-    label: "Food",
-    accent: "#d94f2b",
-    Icon: Utensils,
-    summary: "Calories, meals, recipes, and the stuff that keeps the day from wobbling.",
-    tags: ["Calorie tracker", "Recipe log"],
-  },
-  {
-    id: "finances",
-    label: "Finances",
-    accent: "#087f5b",
-    Icon: ReceiptText,
-    summary: "Daily cash movement, recurring bills, and savings goals in one quiet ledger.",
-    tags: ["Money log", "Bills", "Goals"],
-  },
-  {
-    id: "fitness",
-    label: "Fitness",
-    accent: "#3957d7",
-    Icon: Dumbbell,
-    summary: "Workouts, steps, and body metrics without turning the morning into admin.",
-    tags: ["Workout log", "Daily habits"],
-  },
+const PILLARS = [
+  { id: "learning", name: "School & Learning", short: "Learning", icon: BookOpen, color: "#7c6cf6", description: "Classes, skills, and the long game of getting sharper." },
+  { id: "career", name: "Career & Projects", short: "Career", icon: Target, color: "#ed805a", description: "Work worth showing, opportunities worth pursuing." },
+  { id: "health", name: "Health & Fitness", short: "Health", icon: Dumbbell, color: "#31a986", description: "Train, recover, and feel at home in your body." },
+  { id: "mind", name: "Mind & Growth", short: "Mind", icon: Brain, color: "#af67c6", description: "Reflection, habits, confidence, and inner weather." },
+  { id: "relationships", name: "Relationships", short: "People", icon: Heart, color: "#e86484", description: "People, presence, and the memories you make together." },
+  { id: "tennis", name: "Tennis & Coaching", short: "Tennis", icon: CircleDot, color: "#e4b544", description: "Practice with intention. Coach with care." },
+  { id: "money", name: "Money", short: "Money", icon: Wallet, color: "#38a177", description: "Use money to support the life you actually want." },
+  { id: "maintenance", name: "Life & Maintenance", short: "Life", icon: Home, color: "#6f849e", description: "The quiet systems that keep life from getting loud." },
+  { id: "fun", name: "Fun & Adventure", short: "Adventure", icon: Compass, color: "#e98242", description: "Make room for delight, curiosity, and a little plot." },
+  { id: "food", name: "Food & Nutrition", short: "Food", icon: Leaf, color: "#81a84d", description: "Eat well enough, cook what you love, share the good stuff." },
 ];
 
-const createId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-const todayISO = () => formatLocalISODate(new Date());
-const currentMonthKey = () => todayISO().slice(0, 7);
-
-const defaultBudgetCategories = [
-  { id: createId(), name: "Housing", group: "Needs", limit: 1800 },
-  { id: createId(), name: "Groceries", group: "Needs", limit: 450 },
-  { id: createId(), name: "Restaurants", group: "Wants", limit: 250 },
-  { id: createId(), name: "Transportation", group: "Needs", limit: 300 },
-  { id: createId(), name: "Subscriptions", group: "Wants", limit: 120 },
-  { id: createId(), name: "Savings", group: "Savings", limit: 500 },
-  { id: createId(), name: "Debt", group: "Debt", limit: 200 },
+const ACHIEVEMENTS = [
+  ["first-steps", "First Steps", "Complete your first quest.", "core"],
+  ["locked-in", "Locked In", "Complete a chosen routine 30 times.", "streak"],
+  ["main-character", "Main Character Energy", "Complete a main quest.", "core"],
+  ["athlete", "Athlete", "Complete 100 workouts.", "health"],
+  ["career-mode", "Career Mode", "Complete 50 quality applications.", "career"],
+  ["touch-grass", "Touch Grass", "Spend meaningful time outdoors four days in one week.", "fun"],
+  ["bookworm", "Bookworm", "Finish 12 books or courses.", "learning"],
+  ["date-night", "Date Night", "Create ten memorable dates.", "relationships"],
+  ["ace", "Ace Up Your Sleeve", "Win a tennis match.", "tennis"],
+  ["cashflow", "Cashflow Calm", "Complete 12 monthly money reviews.", "money"],
+  ["yes-chef", "Yes, Chef", "Cook 25 home meals.", "food"],
+  ["adulting", "Adulting", "Complete 25 maintenance quests.", "maintenance"],
+  ["lore-keeper", "Lore Keeper", "Add 100 timeline moments.", "lifetime"],
+  ["snackcident", "Snackcident", "Hidden: log a legendary snack.", "hidden"],
+  ["side-quest-gremlin", "Side Quest Gremlin", "Hidden: complete five fun quests in a week.", "hidden"],
+  ["character-sheet", "Character Sheet", "Set up every chosen pillar.", "core"],
+  ["season-one", "Season One", "Complete your first season recap.", "core"],
+  ["night-shift", "Night Shift", "Complete 20 nightly recaps.", "streak"],
+  ["weekly-ritual", "Weekly Ritual", "Finish 12 weekly reviews.", "streak"],
+  ["comeback-arc", "Comeback Arc", "Return after a pause and complete a meaningful action.", "core"],
+  ["boss-defeated", "Boss Defeated", "Complete a boss battle.", "core"],
+  ["quest-giver", "Quest Giver", "Break a goal into five useful subquests.", "core"],
+  ["deans-list", "Dean’s List", "Complete an academic term goal.", "learning"],
+  ["deep-work", "Deep Work", "Log 25 focused learning sessions.", "learning"],
+  ["skill-tree", "Skill Tree", "Reach a learning-skill milestone.", "learning"],
+  ["deadline-slayer", "Deadline Slayer", "Finish a significant assignment 48 hours early.", "learning"],
+  ["portfolio-polish", "Portfolio Polish", "Publish a portfolio project.", "career"],
+  ["network-effect", "Network Effect", "Complete 10 intentional professional conversations.", "career"],
+  ["interview-ready", "Interview Ready", "Finish an interview-prep season objective.", "career"],
+  ["shipped-it", "Shipped It", "Complete a side project.", "career"],
+  ["offer-unlocked", "Offer Unlocked", "Receive a job or internship offer.", "career"],
+  ["recovery-training", "Recovery Is Training", "Complete four weeks with planned recovery.", "health"],
+  ["mobility-matters", "Mobility Matters", "Complete 30 mobility sessions.", "health"],
+  ["sleepytime", "Sleepytime Champion", "Meet your chosen sleep cadence 20 times.", "health"],
+  ["personal-best", "Personal Best", "Record a fitness personal best.", "health"],
+  ["inner-quest", "Inner Quest", "Write 50 journal entries.", "mind"],
+  ["page-turner", "Page Turner", "Keep a reflection rhythm for four flexible weeks.", "mind"],
+  ["plot-twist", "Plot Twist", "Record a lesson that changes an active plan.", "mind"],
+  ["gentle", "Gentle With Yourself", "Let go of stale tasks five times.", "mind"],
+  ["thoughtful-friend", "Thoughtful Friend", "Plan five intentional quality-time moments.", "relationships"],
+  ["family-lore", "Family Lore", "Save 25 family memories.", "relationships"],
+  ["birthday-buff", "Birthday Buff", "Remember five important dates on time.", "relationships"],
+  ["staying-connected", "Staying Connected", "Reconnect after a chosen interval.", "relationships"],
+  ["court-vision", "Court Vision", "Complete 50 tennis practices.", "tennis"],
+  ["coachs-clipboard", "Coach’s Clipboard", "Create 25 coaching practice plans.", "tennis"],
+  ["rally-point", "Rally Point", "Help a player or team reach a milestone.", "tennis"],
+  ["tournament-arc", "Tournament Arc", "Complete a competition boss battle.", "tennis"],
+  ["emergency-fund", "Emergency Fund", "Hit a chosen savings milestone.", "money"],
+  ["subscription-slayer", "Subscription Slayer", "Cancel or renegotiate five unwanted subscriptions.", "money"],
+  ["future-you", "Future You", "Make 12 investment or savings contributions.", "money"],
+  ["inbox-zero", "Inbox Zero", "Clear an inbox or admin queue.", "maintenance"],
+  ["clean-sweep", "Clean Sweep", "Finish a home reset quest.", "maintenance"],
+  ["passport-stamp", "Passport Stamp", "Complete a trip memory collection.", "fun"],
+  ["hydration-station", "Hydration Station", "Meet a chosen water goal 20 times.", "food"],
+  ["flavor-explorer", "Flavor Explorer", "Try 20 saved foods or restaurants.", "food"],
+  ["leftover-legend", "Leftover Legend", "Plan and use leftovers three times in one week.", "food"],
+  ["grass-before-noon", "Grass Has Been Touched", "Hidden: log an outdoor activity before noon.", "hidden"],
+  ["level-20", "Level 20", "Reach overall player level 20.", "lifetime"],
+  ["renaissance", "Renaissance Save File", "Earn XP in every active pillar in one season.", "lifetime"],
+  ["still-here", "Still Here", "Use the app across one full year and complete a recap.", "lifetime"],
 ];
 
-function formatLocalISODate(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function loadPuter() {
-  if (window.puter) return Promise.resolve(window.puter);
-
-  if (!puterLoadPromise) {
-    puterLoadPromise = new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://js.puter.com/v2/";
-      script.async = true;
-      script.addEventListener("load", () => resolve(window.puter));
-      script.addEventListener("error", () => reject(new Error("Unable to load AI service")));
-      document.head.append(script);
-    }).catch((error) => {
-      puterLoadPromise = undefined;
-      throw error;
-    });
+const dateISO = (date = new Date()) => {
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date - offset).toISOString().slice(0, 10);
+};
+const today = () => dateISO();
+const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+const pillar = (id) => PILLARS.find((item) => item.id === id) || PILLARS[0];
+const formatDate = (value, options = { month: "short", day: "numeric" }) => new Intl.DateTimeFormat(undefined, options).format(new Date(`${value}T12:00:00`));
+const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const levelFromXP = (xp, overall = false) => {
+  let level = 1;
+  let remainder = xp;
+  while (remainder >= (overall ? 250 : 100) + (overall ? 50 : 25) * level) {
+    remainder -= (overall ? 250 : 100) + (overall ? 50 : 25) * level;
+    level += 1;
   }
+  return { level, current: remainder, next: (overall ? 250 : 100) + (overall ? 50 : 25) * level };
+};
+const daysAgo = (days) => dateISO(new Date(Date.now() - days * DAY));
 
-  return puterLoadPromise;
-}
-
-const defaultState = {
-  food: {
-    calorieTarget: 2200,
-    meals: [],
-    recipes: [],
-  },
-  finances: {
-    entries: [],
-    bills: [],
-    categories: defaultBudgetCategories,
-    debts: [],
-    goals: [],
-    subscriptions: [],
-  },
-  fitness: {
-    workouts: [],
-    habits: [
-      { id: createId(), name: "Walk", done: false },
-      { id: createId(), name: "Stretch", done: false },
-      { id: createId(), name: "Water", done: false },
-    ],
-  },
-  morning: {
-    checkedAt: "",
-    focus: "",
-  },
+const starterState = {
+  profile: { name: "Steven", currentSeasonId: "fall-2026" },
+  settings: { showAlignment: true },
+  pillars: Object.fromEntries(PILLARS.map((item, i) => [item.id, { importance: i < 4 ? 5 : i < 7 ? 3 : 2, active: i < 5, selfRating: i === 1 ? 3 : 4 }])),
+  seasons: [{ id: "fall-2026", title: "Build the Launchpad", label: "Fall 2026", start: "2026-09-01", end: "2026-11-30", intention: "Create momentum without losing the rest of my life.", priorities: ["career", "learning", "health", "relationships"], objectives: ["interview-ready", "semester-strong"], recap: "" }],
+  goals: [
+    { id: "job", title: "Land a software engineering job", pillarId: "career", horizon: "year", status: "active", progress: 28, seasonId: "fall-2026" },
+    { id: "interview-ready", title: "Become interview ready", pillarId: "career", horizon: "season", status: "active", progress: 45, parentId: "job", seasonId: "fall-2026" },
+    { id: "semester-strong", title: "Finish the semester strongly", pillarId: "learning", horizon: "season", status: "active", progress: 32, seasonId: "fall-2026" },
+    { id: "serve", title: "Build a more reliable serve", pillarId: "tennis", horizon: "season", status: "active", progress: 20, seasonId: "fall-2026" },
+    { id: "energy", title: "Feel strong and well-rested", pillarId: "health", horizon: "year", status: "active", progress: 38 },
+  ],
+  quests: [
+    { id: "behavioral", title: "Practice behavioral stories for 45 minutes", pillarId: "career", type: "weekly", difficulty: "standard", xp: 50, status: "active", due: today(), goalId: "interview-ready", note: "Use STAR stories for teamwork and challenge prompts." },
+    { id: "portfolio", title: "Ship portfolio case study", pillarId: "career", type: "main", difficulty: "challenging", xp: 120, status: "active", due: "2026-09-18", goalId: "job", note: "Show the decisions, not just the screenshots." },
+    { id: "lab", title: "Submit systems lab", pillarId: "learning", type: "daily", difficulty: "standard", xp: 30, status: "active", due: today(), goalId: "semester-strong" },
+    { id: "tennis-practice", title: "Deliberate serving practice", pillarId: "tennis", type: "recurring", difficulty: "standard", xp: 30, status: "active", due: today(), goalId: "serve" },
+    { id: "call-dad", title: "Call Dad and catch up", pillarId: "relationships", type: "side", difficulty: "small", xp: 20, status: "active", due: today() },
+    { id: "budget", title: "Weekly money check", pillarId: "money", type: "recurring", difficulty: "small", xp: 20, status: "active", due: daysAgo(-2), note: "Look for one decision, not a perfect spreadsheet." },
+  ],
+  habits: [
+    { id: "morning", title: "Morning reset", pillarId: "mind", cadence: 5, completions: [daysAgo(1), daysAgo(2), daysAgo(4)] },
+    { id: "mobility", title: "10-minute mobility", pillarId: "health", cadence: 4, completions: [daysAgo(1), daysAgo(3), daysAgo(5)] },
+    { id: "water", title: "Fill water bottle", pillarId: "food", cadence: 7, completions: [daysAgo(1), daysAgo(2), daysAgo(3), daysAgo(4), daysAgo(5)] },
+    { id: "read", title: "Read before bed", pillarId: "learning", cadence: 4, completions: [daysAgo(2), daysAgo(4), daysAgo(5)] },
+  ],
+  xpEvents: [
+    { id: "xp1", pillarId: "career", amount: 180, label: "Interview preparation", date: daysAgo(1) },
+    { id: "xp2", pillarId: "health", amount: 260, label: "Training sessions", date: daysAgo(2) },
+    { id: "xp3", pillarId: "relationships", amount: 420, label: "Quality time", date: daysAgo(3) },
+    { id: "xp4", pillarId: "learning", amount: 160, label: "Coursework", date: daysAgo(4) },
+    { id: "xp5", pillarId: "tennis", amount: 190, label: "Court time", date: daysAgo(5) },
+  ],
+  checkins: [{ id: "weekly-sample", type: "weekly", date: daysAgo(2), ratings: { career: 3, learning: 4, health: 4, relationships: 4 }, win: "Kept the important work moving.", focus: "Protect deep-work blocks." }],
+  journal: [{ id: "j1", date: daysAgo(1), body: "I felt more confident when I prepared concrete stories instead of trying to sound impressive.", pillarId: "career", goalId: "interview-ready", memory: false }],
+  timeline: [{ id: "t1", date: "2026-09-01", title: "Started Fall 2026: Build the Launchpad", type: "season", pillarId: "career" }, { id: "t2", date: daysAgo(3), title: "Reached Career Level 2", type: "level", pillarId: "career" }],
+  achievements: ["first-steps"],
+  people: [{ id: "dad", name: "Dad", relation: "Family", lastContact: daysAgo(12), note: "Ask about the garden", birthday: "" }],
+  food: { proteinGoal: 130, waterGoal: 3, meals: [{ id: "m1", date: today(), name: "Greek yogurt bowl", type: "Breakfast", protein: 24, atHome: true }, { id: "m2", date: daysAgo(1), name: "Chicken rice bowl", type: "Dinner", protein: 38, atHome: true }], recipes: [{ id: "r1", name: "Weeknight salmon bowls", note: "Fast, flexible, great with leftover rice." }] },
+  money: { savingsGoal: 5000, saved: 1840, transactions: [{ id: "x1", date: today(), name: "Groceries", amount: -64.2, category: "Food" }, { id: "x2", date: daysAgo(2), name: "Coaching income", amount: 180, category: "Income" }] },
+  tennis: { sessions: [{ id: "s1", date: daysAgo(1), title: "Serve + return patterns", minutes: 75, note: "Second serve targets were better." }] },
+  calendar: { events: [{ id: "c1", date: today(), time: "4:30 PM", title: "Tennis practice", pillarId: "tennis", linked: true }, { id: "c2", date: today(), time: "7:00 PM", title: "Call Dad", pillarId: "relationships", linked: true }] },
 };
 
-function mergeState(base, saved) {
-  const copy = structuredClone(base);
-  for (const key of Object.keys(saved || {})) {
-    if (saved[key] && typeof saved[key] === "object" && !Array.isArray(saved[key])) {
-      copy[key] = { ...(copy[key] || {}), ...saved[key] };
-    } else {
-      copy[key] = saved[key];
-    }
-  }
-  return copy;
+function getState() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    return saved ? { ...starterState, ...saved, profile: { ...starterState.profile, ...saved.profile }, settings: { ...starterState.settings, ...saved.settings } } : starterState;
+  } catch { return starterState; }
 }
 
-function useLocalStorageState() {
-  const [state, setState] = useState(() => {
-    try {
-      return mergeState(defaultState, JSON.parse(localStorage.getItem(STORAGE_KEY)));
-    } catch {
-      return structuredClone(defaultState);
-    }
-  });
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
-
-  return [state, setState];
+function useStore() {
+  const [state, setState] = useState(getState);
+  useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(state)), [state]);
+  const act = {
+    update(fn) { setState(fn); },
+    completeQuest(id) {
+      setState((s) => {
+        const quest = s.quests.find((item) => item.id === id);
+        if (!quest || quest.status === "done") return s;
+        const completed = { ...quest, status: "done", completedAt: today() };
+        const awarded = Math.min(150, quest.xp * (quest.difficulty === "challenging" ? 1.25 : 1));
+        const goal = quest.goalId ? s.goals.find((item) => item.id === quest.goalId) : null;
+        const nextGoals = goal ? s.goals.map((item) => item.id === goal.id ? { ...item, progress: clamp(item.progress + 10, 0, 100) } : item) : s.goals;
+        const achievement = s.achievements.includes("first-steps") ? s.achievements : [...s.achievements, "first-steps"];
+        return { ...s, goals: nextGoals, achievements: achievement, quests: s.quests.map((item) => item.id === id ? completed : item), xpEvents: [{ id: uid(), pillarId: quest.pillarId, amount: awarded, label: quest.title, date: today(), sourceId: id }, ...s.xpEvents], timeline: [{ id: uid(), date: today(), title: `Completed: ${quest.title}`, type: "quest", pillarId: quest.pillarId }, ...s.timeline] };
+      });
+    },
+    toggleHabit(id) {
+      setState((s) => ({ ...s, habits: s.habits.map((habit) => habit.id === id ? { ...habit, completions: habit.completions.includes(today()) ? habit.completions.filter((date) => date !== today()) : [...habit.completions, today()] } : habit) }));
+    },
+    addQuest(data) { setState((s) => ({ ...s, quests: [{ id: uid(), status: "active", xp: Number(data.xp) || 30, difficulty: "standard", ...data }, ...s.quests] })); },
+    addHabit(data) { setState((s) => ({ ...s, habits: [{ id: uid(), completions: [], cadence: Number(data.cadence) || 3, ...data }, ...s.habits] })); },
+    checkIn(data) { setState((s) => ({ ...s, checkins: [{ id: uid(), date: today(), ...data }, ...s.checkins] })); },
+    addJournal(data) { setState((s) => ({ ...s, journal: [{ id: uid(), date: today(), ...data }, ...s.journal] })); },
+    addMemory(data) { setState((s) => ({ ...s, timeline: [{ id: uid(), date: data.date || today(), type: "memory", ...data }, ...s.timeline] })); },
+    addMeal(data) { setState((s) => ({ ...s, food: { ...s.food, meals: [{ id: uid(), date: today(), atHome: true, protein: 0, ...data }, ...s.food.meals] } })); },
+    addTransaction(data) { setState((s) => ({ ...s, money: { ...s.money, transactions: [{ id: uid(), date: today(), amount: Number(data.amount) || 0, ...data }, ...s.money.transactions] } })); },
+    addTennisSession(data) { setState((s) => ({ ...s, tennis: { ...s.tennis, sessions: [{ id: uid(), date: today(), minutes: Number(data.minutes) || 0, ...data }, ...s.tennis.sessions] }, xpEvents: [{ id: uid(), pillarId: "tennis", amount: 30, label: data.title || "Tennis session", date: today() }, ...s.xpEvents] })); },
+    touchPerson(id) { setState((s) => ({ ...s, people: s.people.map((person) => person.id === id ? { ...person, lastContact: today() } : person), xpEvents: [{ id: uid(), pillarId: "relationships", amount: 20, label: "Intentional connection", date: today() }, ...s.xpEvents] })); },
+    award(id) { setState((s) => s.achievements.includes(id) ? s : { ...s, achievements: [...s.achievements, id] }); },
+    exportData() { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: "application/json" })); a.download = `game-of-life-${today()}.json`; a.click(); URL.revokeObjectURL(a.href); },
+    importData(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const imported = JSON.parse(reader.result);
+          if (!imported || !Array.isArray(imported.quests) || !Array.isArray(imported.xpEvents)) throw new Error("Invalid Game of Life export");
+          setState({ ...starterState, ...imported, profile: { ...starterState.profile, ...imported.profile }, settings: { ...starterState.settings, ...imported.settings } });
+        } catch { window.alert("That file is not a valid Game of Life export."); }
+      };
+      reader.readAsText(file);
+    },
+  };
+  return [state, act];
 }
 
-function useHashRoute() {
-  const [route, setRoute] = useState(() => window.location.hash.replace(/^#\/?/, "") || "home");
-
-  useEffect(() => {
-    const onHashChange = () => setRoute(window.location.hash.replace(/^#\/?/, "") || "home");
-    window.addEventListener("hashchange", onHashChange);
-    return () => window.removeEventListener("hashchange", onHashChange);
-  }, []);
-
-  return route;
+function derive(state) {
+  const xpByPillar = Object.fromEntries(PILLARS.map((item) => [item.id, state.xpEvents.filter((e) => e.pillarId === item.id).reduce((sum, e) => sum + e.amount, 0)]));
+  const totalXP = Object.values(xpByPillar).reduce((sum, value) => sum + value, 0);
+  const weekStart = daysAgo(6);
+  const activeDays = new Set([...state.xpEvents.filter((e) => e.date >= weekStart).map((e) => e.date), ...state.habits.flatMap((h) => h.completions.filter((d) => d >= weekStart))]).size;
+  const pulse = Object.fromEntries(PILLARS.map((item) => {
+    const configured = state.pillars[item.id] || {};
+    const actions = state.xpEvents.filter((e) => e.pillarId === item.id && e.date >= daysAgo(20)).length + state.habits.filter((h) => h.pillarId === item.id).flatMap((h) => h.completions.filter((d) => d >= daysAgo(20))).length;
+    const goals = state.goals.filter((g) => g.pillarId === item.id && g.status === "active");
+    const goalProgress = goals.length ? goals.reduce((sum, g) => sum + g.progress, 0) / goals.length : 45;
+    const base = (configured.selfRating || 3) * 14 + goalProgress * .25 + Math.min(actions, 8) * 3.5;
+    return [item.id, Math.round(clamp(base, 0, 100))];
+  }));
+  const priorities = state.seasons.find((s) => s.id === state.profile.currentSeasonId)?.priorities || [];
+  const alignmentNumerator = PILLARS.reduce((sum, p) => sum + pulse[p.id] * ((state.pillars[p.id]?.importance || 2) * (priorities.includes(p.id) ? 1.2 : 1)), 0);
+  const alignmentDenominator = PILLARS.reduce((sum, p) => sum + (state.pillars[p.id]?.importance || 2) * (priorities.includes(p.id) ? 1.2 : 1), 0);
+  return { xpByPillar, totalXP, player: levelFromXP(totalXP, true), levels: Object.fromEntries(PILLARS.map((p) => [p.id, levelFromXP(xpByPillar[p.id])])), pulse, alignment: Math.round(alignmentNumerator / alignmentDenominator), activeDays, priorities };
 }
 
 function App() {
-  const [state, setState] = useLocalStorageState();
-  const route = useHashRoute();
-  const [financeTab, setFinanceTab] = useState("overview");
-  const stats = useMemo(() => getStats(state), [state]);
-
-  const actions = useMemo(() => createActions(setState), [setState]);
-
-  return (
-    <div className="app-shell">
-      <SideRail route={route} stats={stats} />
-      <main className="main-stage" tabIndex="-1">
-        {route === "food" && <FoodPage actions={actions} state={state} stats={stats.food} />}
-        {route === "finances" && (
-          <FinancesPage
-            activeTab={financeTab}
-            actions={actions}
-            setActiveTab={setFinanceTab}
-            state={state}
-            stats={stats.finances}
-          />
-        )}
-        {route === "fitness" && <FitnessPage actions={actions} state={state} stats={stats.fitness} />}
-        {!["food", "finances", "fitness"].includes(route) && (
-          <Dashboard actions={actions} state={state} stats={stats} />
-        )}
-      </main>
-    </div>
-  );
+  const [state, actions] = useStore();
+  const [route, setRoute] = useState(() => location.hash.slice(2) || "today");
+  const [quickAdd, setQuickAdd] = useState(false);
+  const data = useMemo(() => derive(state), [state]);
+  useEffect(() => { const listener = () => setRoute(location.hash.slice(2) || "today"); addEventListener("hashchange", listener); return () => removeEventListener("hashchange", listener); }, []);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [route]);
+  const navigate = (id) => { location.hash = `/${id}`; };
+  const page = { today: <Today state={state} data={data} actions={actions} />, life: <Life state={state} data={data} actions={actions} />, quests: <Quests state={state} data={data} actions={actions} />, progress: <Progress state={state} data={data} actions={actions} />, journal: <Journal state={state} actions={actions} />, coach: <Coach state={state} data={data} actions={actions} /> }[route] || null;
+  return <div className="app-shell"><Sidebar route={route} data={data} navigate={navigate} onQuick={() => setQuickAdd(true)} /><main className="stage">{page}</main><MobileNav route={route} navigate={navigate} onQuick={() => setQuickAdd(true)} />{quickAdd && <QuickAdd state={state} actions={actions} close={() => setQuickAdd(false)} />}</div>;
 }
 
-function createActions(setState) {
-  return {
-    saveFocus(focus) {
-      setState((state) => ({
-        ...state,
-        morning: { focus: focus.trim(), checkedAt: todayISO() },
-      }));
-    },
-    checkIn() {
-      setState((state) => ({ ...state, morning: { ...state.morning, checkedAt: todayISO() } }));
-    },
-    seedDay() {
-      setState((state) => {
-        const today = todayISO();
-        const meals = state.food.meals.some((meal) => meal.date === today)
-          ? state.food.meals
-          : [{ id: createId(), name: "Morning coffee", calories: 40, kind: "Breakfast", date: today }, ...state.food.meals];
-        const workouts = state.fitness.workouts.some((workout) => workout.date === today)
-          ? state.fitness.workouts
-          : [{ id: createId(), name: "Morning walk", minutes: 20, intensity: "Easy", date: today }, ...state.fitness.workouts];
-        return {
-          ...state,
-          food: { ...state.food, meals },
-          fitness: { ...state.fitness, workouts },
-          morning: { ...state.morning, checkedAt: today },
-        };
-      });
-    },
-    setCalorieTarget(calorieTarget) {
-      setState((state) => ({ ...state, food: { ...state.food, calorieTarget: Number(calorieTarget || 0) } }));
-    },
-    addMeal(meal) {
-      setState((state) => ({
-        ...state,
-        food: { ...state.food, meals: [{ id: createId(), ...meal, calories: Number(meal.calories || 0) }, ...state.food.meals] },
-      }));
-    },
-    addRecipe(recipe) {
-      setState((state) => ({
-        ...state,
-        food: {
-          ...state.food,
-          recipes: [
-            {
-              id: createId(),
-              name: recipe.name.trim(),
-              calories: Number(recipe.calories || 0),
-              ingredients: recipe.ingredients.trim(),
-              instructions: recipe.instructions.trim(),
-            },
-            ...state.food.recipes,
-          ],
-        },
-      }));
-    },
-    addFinanceEntry(entry) {
-      setState((state) => ({
-        ...state,
-        finances: {
-          ...state.finances,
-          entries: [
-            {
-              id: createId(),
-              ...entry,
-              amount: Number(entry.amount || 0),
-              category: entry.category || "Uncategorized",
-            },
-            ...state.finances.entries,
-          ],
-        },
-      }));
-    },
-    addBudgetCategory(category) {
-      setState((state) => ({
-        ...state,
-        finances: {
-          ...state.finances,
-          categories: [
-            {
-              id: createId(),
-              name: category.name.trim(),
-              group: category.group,
-              limit: Number(category.limit || 0),
-            },
-            ...state.finances.categories,
-          ],
-        },
-      }));
-    },
-    addBill(bill) {
-      setState((state) => ({
-        ...state,
-        finances: {
-          ...state.finances,
-          bills: [{ id: createId(), ...bill, amount: Number(bill.amount || 0), paid: false }, ...state.finances.bills],
-        },
-      }));
-    },
-    addGoal(goal) {
-      setState((state) => ({
-        ...state,
-        finances: {
-          ...state.finances,
-          goals: [
-            { id: createId(), ...goal, target: Number(goal.target || 0), saved: Number(goal.saved || 0) },
-            ...state.finances.goals,
-          ],
-        },
-      }));
-    },
-    addDebt(debt) {
-      setState((state) => ({
-        ...state,
-        finances: {
-          ...state.finances,
-          debts: [
-            {
-              id: createId(),
-              name: debt.name.trim(),
-              balance: Number(debt.balance || 0),
-              apr: Number(debt.apr || 0),
-              minimum: Number(debt.minimum || 0),
-            },
-            ...state.finances.debts,
-          ],
-        },
-      }));
-    },
-    addSubscription(subscription) {
-      setState((state) => ({
-        ...state,
-        finances: {
-          ...state.finances,
-          subscriptions: [
-            {
-              id: createId(),
-              name: subscription.name.trim(),
-              amount: Number(subscription.amount || 0),
-              billingDay: Number(subscription.billingDay || 1),
-              category: subscription.category || "Subscriptions",
-              active: true,
-            },
-            ...state.finances.subscriptions,
-          ],
-        },
-      }));
-    },
-    addWorkout(workout) {
-      setState((state) => ({
-        ...state,
-        fitness: {
-          ...state.fitness,
-          workouts: [{ id: createId(), ...workout, minutes: Number(workout.minutes || 0) }, ...state.fitness.workouts],
-        },
-      }));
-    },
-    addHabit(habit) {
-      setState((state) => ({
-        ...state,
-        fitness: { ...state.fitness, habits: [{ id: createId(), name: habit.name.trim(), done: false }, ...state.fitness.habits] },
-      }));
-    },
-    toggleBill(id) {
-      setState((state) => ({
-        ...state,
-        finances: {
-          ...state.finances,
-          bills: state.finances.bills.map((bill) => (bill.id === id ? { ...bill, paid: !bill.paid } : bill)),
-        },
-      }));
-    },
-    toggleHabit(id) {
-      setState((state) => ({
-        ...state,
-        fitness: {
-          ...state.fitness,
-          habits: state.fitness.habits.map((habit) => (habit.id === id ? { ...habit, done: !habit.done } : habit)),
-        },
-      }));
-    },
-    remove(type, id) {
-      const map = {
-        meal: ["food", "meals"],
-        recipe: ["food", "recipes"],
-        financeEntry: ["finances", "entries"],
-        budgetCategory: ["finances", "categories"],
-        bill: ["finances", "bills"],
-        debt: ["finances", "debts"],
-        goal: ["finances", "goals"],
-        subscription: ["finances", "subscriptions"],
-        workout: ["fitness", "workouts"],
-        habit: ["fitness", "habits"],
-      };
-      const [section, list] = map[type];
-      setState((state) => ({
-        ...state,
-        [section]: { ...state[section], [list]: state[section][list].filter((item) => item.id !== id) },
-      }));
-    },
-  };
+function Sidebar({ route, navigate, data, onQuick }) {
+  const nav = [["today", "Today", Home], ["life", "Life", Compass], ["quests", "Quests", Target], ["progress", "Progress", Trophy], ["journal", "Journal", PenLine], ["coach", "Coach", Sparkles]];
+  return <aside className="sidebar"><a href="#/today" className="brand"><span className="brand-orb"><span /></span><span>Game<br />of Life</span></a><nav>{nav.map(([id, label, Icon]) => <button key={id} className={route === id ? "nav active" : "nav"} onClick={() => navigate(id)}><Icon /><span>{label}</span>{id === "today" && <i>{data.activeDays}/7</i>}</button>)}</nav><button className="quick-button" onClick={onQuick}><Plus /> Add to life</button><div className="sidebar-foot"><span className="privacy-dot" /> Yours, stored locally</div></aside>;
 }
+function MobileNav({ route, navigate, onQuick }) { return <nav className="mobile-nav">{[["today", Home], ["life", Compass], ["add", Plus], ["quests", Target], ["progress", Trophy]].map(([id, Icon]) => <button key={id} className={route === id ? "active" : id === "add" ? "add" : ""} onClick={() => id === "add" ? onQuick() : navigate(id)}><Icon /><span>{id === "add" ? "Add" : id}</span></button>)}</nav>; }
 
-function getStats(state) {
-  const today = todayISO();
-  const todaysMeals = state.food.meals.filter((meal) => meal.date === today);
-  const calories = todaysMeals.reduce((sum, meal) => sum + Number(meal.calories || 0), 0);
-  const calorieTarget = Number(state.food.calorieTarget || 0);
-  const sevenDayCalories = getSevenDayCalories(state.food.meals);
-  const sevenDayAverage = Math.round(sevenDayCalories.reduce((sum, day) => sum + day.calories, 0) / 7);
-  const financeStats = getFinanceStats(state.finances);
-  const income = state.finances.entries
-    .filter((entry) => entry.type === "income")
-    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const expenses = state.finances.entries
-    .filter((entry) => entry.type === "expense")
-    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const todaysWorkouts = state.fitness.workouts.filter((workout) => workout.date === today);
-  const doneHabits = state.fitness.habits.filter((habit) => habit.done).length;
-
-  return {
-    domainCounts: {
-      food: domainCount(state, "food"),
-      finances: domainCount(state, "finances"),
-      fitness: domainCount(state, "fitness"),
-    },
-    dashboardCount: domainCount(state, "food") + domainCount(state, "finances") + domainCount(state, "fitness"),
-    food: {
-      calories,
-      remaining: Math.max(0, calorieTarget - calories),
-      progress: calorieTarget ? Math.min(100, Math.round((calories / calorieTarget) * 100)) : 0,
-      sevenDayAverage,
-      sevenDayCalories,
-    },
-    finances: {
-      income,
-      expenses,
-      balance: income - expenses,
-      dueBills: state.finances.bills.filter((bill) => !bill.paid).length,
-      ...financeStats,
-    },
-    fitness: {
-      todaysWorkouts,
-      doneHabits,
-      habitTotal: state.fitness.habits.length,
-      totalMinutes: state.fitness.workouts.reduce((sum, workout) => sum + Number(workout.minutes || 0), 0),
-    },
-  };
+function Today({ state, data, actions }) {
+  const morning = state.checkins.find((c) => c.type === "morning" && c.date === today());
+  const night = state.checkins.find((c) => c.type === "night" && c.date === today());
+  const season = state.seasons.find((s) => s.id === state.profile.currentSeasonId);
+  const todayQuests = state.quests.filter((q) => q.status === "active" && (!q.due || q.due <= today())).slice(0, 4);
+  const attention = PILLARS.filter((p) => state.pillars[p.id]?.active).sort((a, b) => data.pulse[a.id] - data.pulse[b.id])[0];
+  return <><PageIntro kicker={season?.label} title={`Good ${timeGreeting()}, ${state.profile.name}.`} text={morning?.focus || "Choose a few things that make today count. The rest can wait."} aside={<LevelChip data={data} />} />
+    <section className="today-grid"><div className="today-main">
+      {!morning ? <MorningCheck state={state} actions={actions} /> : <FocusCard checkin={morning} />}
+      <section className="section-block"><SectionHeader icon={Target} eyebrow="Your through-line" title="Main quest" action="View all" href="#/quests" /><MainQuest state={state} data={data} /></section>
+      <section className="section-block"><SectionHeader icon={Check} eyebrow="Small, meaningful moves" title="Today’s plan" /><div className="quest-list">{todayQuests.map((quest) => <QuestRow key={quest.id} quest={quest} actions={actions} />)}{!todayQuests.length && <Empty text="Your plan is clear. Add a meaningful next move when you need one." />}</div></section>
+    </div><aside className="today-side"><Habits habits={state.habits} actions={actions} /><div className="signal-card"><p className="eyebrow">Gentle signal</p><h3>{pillar(attention.id).short} could use a little attention.</h3><p>It is below your usual rhythm—not behind. One small action is enough.</p><a href="#/life">See your life wheel <ChevronRight /></a></div><div className="calendar-card"><p className="eyebrow"><CalendarDays /> Today</p><div><b>4:30 PM</b><span>Tennis practice</span></div><div><b>7:00 PM</b><span>Call Dad</span></div></div>{!night ? <NightRecap actions={actions} /> : <div className="complete-card"><Check /> Nightly recap complete. See you tomorrow.</div>}</aside></section></>;
 }
+function timeGreeting() { const hour = new Date().getHours(); return hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"; }
+function PageIntro({ kicker, title, text, aside }) { return <header className="page-intro"><div><p className="eyebrow">{kicker}</p><h1>{title}</h1><p className="intro-text">{text}</p></div>{aside}</header>; }
+function LevelChip({ data }) { return <div className="level-chip"><span className="level-rune"><Zap /></span><div><small>Player level</small><b>{data.player.level}</b><em>{data.player.current}/{data.player.next} XP</em></div></div>; }
+function SectionHeader({ icon: Icon, eyebrow, title, action, href }) { return <div className="section-header"><div><p className="eyebrow">{eyebrow}</p><h2><Icon /> {title}</h2></div>{action && <a href={href} className="text-link">{action} <ChevronRight /></a>}</div>; }
+function MorningCheck({ state, actions }) { const [form, setForm] = useState({ sleep: "Good", energy: 3, mood: "Steady", focus: "", pillarId: "career" }); const set = (key, value) => setForm((f) => ({ ...f, [key]: value })); return <section className="checkin-card"><div><p className="eyebrow"><Coffee /> Under two minutes</p><h2>Set the tone, not a performance target.</h2></div><div className="checkin-fields"><Choice label="Sleep" value={form.sleep} values={["Rough", "Okay", "Good"]} onChange={(v) => set("sleep", v)} /><Choice label="Energy" value={form.energy} values={[1, 2, 3, 4, 5]} onChange={(v) => set("energy", Number(v))} /><Choice label="Mood" value={form.mood} values={["Heavy", "Steady", "Light"]} onChange={(v) => set("mood", v)} /><label className="wide-field">Today will feel successful if<input value={form.focus} onChange={(e) => set("focus", e.target.value)} placeholder="I make one meaningful move…" /></label><label className="wide-field">Which pillar deserves attention?<select value={form.pillarId} onChange={(e) => set("pillarId", e.target.value)}>{PILLARS.map((p) => <option value={p.id} key={p.id}>{p.name}</option>)}</select></label></div><button className="primary" onClick={() => actions.checkIn({ ...form, type: "morning" })}>Begin today <ChevronRight /></button></section>; }
+function Choice({ label, value, values, onChange }) { return <fieldset className="choice"><legend>{label}</legend><div>{values.map((item) => <button className={String(value) === String(item) ? "selected" : ""} type="button" onClick={() => onChange(item)} key={item}>{item}</button>)}</div></fieldset>; }
+function FocusCard({ checkin }) { return <section className="focus-card"><span><Sparkles /></span><div><p className="eyebrow">Today’s intention · {pillar(checkin.pillarId).short}</p><h2>{checkin.focus || "Make one meaningful move."}</h2><p>{checkin.sleep} sleep · {checkin.energy}/5 energy · Feeling {checkin.mood.toLowerCase()}</p></div></section>; }
+function MainQuest({ state }) { const quest = state.quests.find((q) => q.type === "main" && q.status === "active") || state.quests.find((q) => q.status === "active"); const goal = state.goals.find((g) => g.id === quest?.goalId); if (!quest) return <Empty text="Choose a seasonal main quest to create a clear through-line." />; const p = pillar(quest.pillarId); const Icon = p.icon; return <article className="main-quest" style={{ "--quest-color": p.color }}><div className="quest-emblem"><Icon /></div><div className="main-quest-copy"><p className="eyebrow">{p.short} · {quest.type} quest</p><h3>{quest.title}</h3><p>{quest.note || "A concrete move toward the life you are building."}</p><div className="goal-breadcrumb"><span>{goal?.title || "Unlinked quest"}</span><span>{goal ? `${goal.progress}%` : ""}</span></div></div><div className="xp-seal"><b>+{quest.xp}</b><small>XP</small></div></article>; }
+function QuestRow({ quest, actions }) { const p = pillar(quest.pillarId); return <article className="quest-row"><button className="check-button" onClick={() => actions.completeQuest(quest.id)} aria-label={`Complete ${quest.title}`}><Check /></button><div className="quest-row-copy"><span style={{ color: p.color }}>{p.short} · {quest.type}</span><h3>{quest.title}</h3>{quest.due && <p>{quest.due === today() ? "Today" : `Due ${formatDate(quest.due)}`}</p>}</div><div className="quest-xp">+{quest.xp}<small>XP</small></div></article>; }
+function Habits({ habits, actions }) { return <section className="habits-card"><SectionHeader icon={RotateCcw} eyebrow="Keep it gentle" title="Rhythms" /><div>{habits.map((habit) => { const done = habit.completions.includes(today()); const recent = habit.completions.filter((d) => d >= daysAgo(6)).length; return <button className={`habit ${done ? "done" : ""}`} onClick={() => actions.toggleHabit(habit.id)} key={habit.id}><span className="habit-check"><Check /></span><span>{habit.title}<small>{recent}/{habit.cadence} this week</small></span><i style={{ background: pillar(habit.pillarId).color }} /></button>; })}</div></section>; }
+function NightRecap({ actions }) { const [open, setOpen] = useState(false); const [form, setForm] = useState({ win: "", gratitude: "", tomorrow: "", mood: 3, energy: 3 }); return <section className="night-card">{!open ? <><div><p className="eyebrow"><Moon /> End the day softly</p><h3>One-minute nightly recap</h3></div><button className="secondary" onClick={() => setOpen(true)}>Reflect <ChevronRight /></button></> : <div className="recap-form"><h3>Close the day</h3><input placeholder="Today’s biggest win" value={form.win} onChange={(e) => setForm({ ...form, win: e.target.value })} /><input placeholder="One thing I’m grateful for" value={form.gratitude} onChange={(e) => setForm({ ...form, gratitude: e.target.value })} /><input placeholder="Make tomorrow easier by…" value={form.tomorrow} onChange={(e) => setForm({ ...form, tomorrow: e.target.value })} /><button className="primary" onClick={() => actions.checkIn({ ...form, type: "night" })}>Save recap <Check /></button></div>}</section>; }
 
-function getFinanceStats(finances) {
-  const month = currentMonthKey();
-  const monthlyEntries = finances.entries.filter((entry) => entry.date?.startsWith(month));
-  const monthlyIncome = monthlyEntries
-    .filter((entry) => entry.type === "income")
-    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const monthlyExpenses = monthlyEntries
-    .filter((entry) => entry.type === "expense")
-    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const categoryRows = finances.categories.map((category) => {
-    const spent = monthlyEntries
-      .filter((entry) => entry.type === "expense" && entry.category === category.name)
-      .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-    const limit = Number(category.limit || 0);
-    return {
-      ...category,
-      limit,
-      remaining: limit - spent,
-      spent,
-      progress: limit ? Math.min(100, Math.round((spent / limit) * 100)) : 0,
-    };
-  });
-  const budgeted = categoryRows.reduce((sum, category) => sum + category.limit, 0);
-  const budgetSpent = categoryRows.reduce((sum, category) => sum + category.spent, 0);
-  const overBudget = categoryRows.reduce((sum, category) => sum + Math.max(0, category.spent - category.limit), 0);
-  const groupRows = ["Needs", "Wants", "Savings", "Debt"].map((group) => {
-    const categories = categoryRows.filter((category) => category.group === group);
-    const planned = categories.reduce((sum, category) => sum + category.limit, 0);
-    const spent = categories.reduce((sum, category) => sum + category.spent, 0);
-    return {
-      group,
-      planned,
-      spent,
-      percentOfIncome: monthlyIncome ? Math.round((spent / monthlyIncome) * 100) : 0,
-    };
-  });
-  const subscriptionsTotal = finances.subscriptions
-    .filter((subscription) => subscription.active !== false)
-    .reduce((sum, subscription) => sum + Number(subscription.amount || 0), 0);
-  const debtTotal = finances.debts.reduce((sum, debt) => sum + Number(debt.balance || 0), 0);
-  const debtMinimums = finances.debts.reduce((sum, debt) => sum + Number(debt.minimum || 0), 0);
-  const unpaidBills = finances.bills.filter((bill) => !bill.paid);
-  const upcomingBills = [...unpaidBills].sort((a, b) => String(a.due).localeCompare(String(b.due))).slice(0, 4);
+function Life({ state, data, actions }) { const [selected, setSelected] = useState("career"); const p = pillar(selected); const PillarIcon = p.icon; const relatedGoals = state.goals.filter((g) => g.pillarId === selected); const relatedQuests = state.quests.filter((q) => q.pillarId === selected && q.status === "active"); const selectedData = data.levels[selected]; return <><PageIntro kicker="Your living map" title="Life, at a glance." text="The wheel reflects the priorities you set—not a verdict on how well you are living." aside={<div className="alignment-chip"><small>Alignment</small><b>{data.alignment}</b><span>steady</span></div>} /><section className="life-layout"><div className="wheel-card"><LifeWheel data={data} state={state} selected={selected} onSelect={setSelected} /><p className="wheel-caption"><ShieldCheck /> {p.short} is {data.pulse[selected] >= 70 ? "one of your strongest areas" : "asking for a little care"}. Intentional pauses are never treated as neglect.</p></div><aside className="pillar-detail"><div className="pillar-detail-head" style={{ "--pillar": p.color }}><PillarIcon /><div><p className="eyebrow">Pillar profile</p><h2>{p.name}</h2><p>{p.description}</p></div></div><div className="pillar-statline"><div><small>Level</small><b>{selectedData.level}</b></div><div><small>Pulse</small><b>{data.pulse[selected]}</b></div><div><small>XP</small><b>{data.xpByPillar[selected]}</b></div></div><label className="rating-control">How does this area feel this week?<div>{[1,2,3,4,5].map((n) => <button className={(state.pillars[selected]?.selfRating || 3) === n ? "picked" : ""} onClick={() => actions.update((s) => ({ ...s, pillars: { ...s.pillars, [selected]: { ...s.pillars[selected], selfRating: n } } }))} key={n}>{n}</button>)}</div></label><h3>Active goals</h3>{relatedGoals.map((goal) => <ProgressLine key={goal.id} label={goal.title} value={goal.progress} color={p.color} />)}<h3>Next moves</h3>{relatedQuests.slice(0, 3).map((q) => <QuestRow key={q.id} quest={q} actions={actions} />)}</aside></section><section className="pillar-grid">{PILLARS.map((item) => { const Icon = item.icon; return <button key={item.id} className={selected === item.id ? "pillar-card selected" : "pillar-card"} onClick={() => setSelected(item.id)} style={{ "--pillar": item.color }}><Icon /><span>{item.short}</span><b>{data.pulse[item.id]}</b><i><em style={{ width: `${data.pulse[item.id]}%` }} /></i></button>; })}</section><PillarWorkbench selected={selected} state={state} actions={actions} /></> }
+function LifeWheel({ data, state, selected, onSelect }) { const points = PILLARS.map((p, i) => { const angle = (Math.PI * 2 * i) / PILLARS.length - Math.PI / 2; const r = 105 * (data.pulse[p.id] / 100); return `${150 + Math.cos(angle) * r},${150 + Math.sin(angle) * r}`; }).join(" "); return <div className="wheel"><svg viewBox="0 0 300 300" aria-label="Life Wheel radar chart"><g className="wheel-rings">{[35,70,105].map((r) => <circle cx="150" cy="150" r={r} key={r} />)}{PILLARS.map((p, i) => { const a = Math.PI * 2 * i / PILLARS.length - Math.PI / 2; return <line key={p.id} x1="150" y1="150" x2={150 + Math.cos(a) * 105} y2={150 + Math.sin(a) * 105} />; })}</g><polygon points={points} className="wheel-shape" />{PILLARS.map((p, i) => { const a = Math.PI * 2 * i / PILLARS.length - Math.PI / 2; const r = 105 * data.pulse[p.id] / 100; return <circle key={p.id} className={selected === p.id ? "wheel-point selected" : "wheel-point"} cx={150 + Math.cos(a) * r} cy={150 + Math.sin(a) * r} r="5" onClick={() => onSelect(p.id)} />; })}</svg><div className="wheel-labels">{PILLARS.map((p, i) => { const a = Math.PI * 2 * i / PILLARS.length - Math.PI / 2; return <button key={p.id} className={selected === p.id ? "selected" : ""} style={{ left: `${50 + Math.cos(a) * 48}%`, top: `${50 + Math.sin(a) * 48}%` }} onClick={() => onSelect(p.id)}>{p.short}</button>; })}</div></div>; }
+function ProgressLine({ label, value, color }) { return <div className="progress-line"><div><span>{label}</span><b>{value}%</b></div><i><em style={{ width: `${value}%`, background: color }} /></i></div>; }
 
-  return {
-    budgetRemaining: budgeted - budgetSpent,
-    budgetSpent,
-    budgeted,
-    categoryRows,
-    debtMinimums,
-    debtTotal,
-    groupRows,
-    monthlyBalance: monthlyIncome - monthlyExpenses,
-    monthlyEntries,
-    monthlyExpenses,
-    monthlyIncome,
-    overBudget,
-    subscriptionsTotal,
-    upcomingBills,
-  };
+function PillarWorkbench({ selected, state, actions }) {
+  if (selected === "food") return <FoodWorkbench food={state.food} actions={actions} />;
+  if (selected === "money") return <MoneyWorkbench money={state.money} actions={actions} />;
+  if (selected === "relationships") return <PeopleWorkbench people={state.people} actions={actions} />;
+  if (selected === "tennis") return <TennisWorkbench tennis={state.tennis} actions={actions} />;
+  return <section className="workbench empty-workbench"><div><p className="eyebrow">Pillar workspace</p><h2>Make {pillar(selected).short.toLowerCase()} useful, not busy.</h2><p>Use goals and linked quests for the work that matters here. A dedicated log appears only where it reduces real friction.</p></div><a className="primary" href="#/quests">Create a linked quest <Plus /></a></section>;
 }
-
-function getSevenDayCalories(meals) {
-  const date = new Date(`${todayISO()}T12:00:00`);
-  const days = [];
-
-  for (let offset = 6; offset >= 0; offset -= 1) {
-    const day = new Date(date);
-    day.setDate(date.getDate() - offset);
-    const iso = formatLocalISODate(day);
-    const calories = meals.filter((meal) => meal.date === iso).reduce((sum, meal) => sum + Number(meal.calories || 0), 0);
-    days.push({
-      calories,
-      date: iso,
-      label: formatChartDate(day),
-    });
-  }
-
-  return days;
+function FoodWorkbench({ food, actions }) {
+  const [name, setName] = useState("");
+  const [protein, setProtein] = useState("");
+  const todayMeals = food.meals.filter((meal) => meal.date === today());
+  const proteinTotal = todayMeals.reduce((sum, meal) => sum + Number(meal.protein || 0), 0);
+  return <section className="workbench"><div className="workbench-heading"><div><p className="eyebrow">Food, without the pressure</p><h2>Feed the day.</h2><p>Use the details that help; calories are intentionally absent unless you decide to add them later.</p></div><div className="food-goal"><b>{proteinTotal}<small>/{food.proteinGoal}g protein</small></b><span>today</span></div></div><div className="workbench-grid"><div><h3>Today’s meals</h3>{todayMeals.length ? todayMeals.map((meal) => <div className="log-row" key={meal.id}><span><Leaf /></span><div><b>{meal.name}</b><small>{meal.type} · {meal.atHome ? "at home" : "out"}</small></div><em>{meal.protein ? `${meal.protein}g` : ""}</em></div>) : <Empty text="Nothing logged yet. A meal can be just a name." />}<div className="inline-form"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Meal or snack" /><input value={protein} onChange={(e) => setProtein(e.target.value)} type="number" placeholder="Protein g" /><button className="secondary" onClick={() => { if (!name.trim()) return; actions.addMeal({ name, protein: Number(protein) || 0, type: "Meal" }); setName(""); setProtein(""); }}><Plus /></button></div></div><div><h3>Kitchen queue</h3>{food.recipes.map((recipe) => <div className="recipe-row" key={recipe.id}><b>{recipe.name}</b><p>{recipe.note}</p></div>)}<div className="food-notes"><span>Water goal</span><b>{food.waterGoal} bottles</b><span>Home-cooked this week</span><b>{food.meals.filter((m) => m.atHome && m.date >= daysAgo(6)).length} meals</b></div></div></div></section>;
 }
-
-function isWithinLastSevenDays(dateString) {
-  if (!dateString) return false;
-  const today = new Date(`${todayISO()}T12:00:00`);
-  const date = new Date(`${dateString}T12:00:00`);
-  const ageInDays = Math.floor((today - date) / 86400000);
-  return ageInDays >= 0 && ageInDays < 7;
+function MoneyWorkbench({ money, actions }) {
+  const [name, setName] = useState(""); const [amount, setAmount] = useState("");
+  const balance = money.transactions.reduce((sum, item) => sum + Number(item.amount), 0);
+  return <section className="workbench"><div className="workbench-heading"><div><p className="eyebrow">Money, in service of your life</p><h2>Cashflow calm.</h2><p>Notice what needs a decision. Do not turn the rest into a guilt spreadsheet.</p></div><div className="food-goal money-goal"><b>${money.saved.toLocaleString()}<small>/${money.savingsGoal.toLocaleString()}</small></b><span>savings goal</span></div></div><div className="workbench-grid"><div><h3>Recent movement <em className={balance >= 0 ? "positive" : "negative"}>{balance >= 0 ? "+" : ""}${balance.toFixed(2)}</em></h3>{money.transactions.slice(0,4).map((item) => <div className="log-row" key={item.id}><span><Wallet /></span><div><b>{item.name}</b><small>{item.category} · {formatDate(item.date)}</small></div><em className={item.amount >= 0 ? "positive" : "negative"}>{item.amount >= 0 ? "+" : ""}${Math.abs(item.amount).toFixed(2)}</em></div>)}<div className="inline-form"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Income or expense" /><input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" placeholder="Amount (+/-)" /><button className="secondary" onClick={() => { if (!name.trim() || !amount) return; actions.addTransaction({ name, amount, category: Number(amount) > 0 ? "Income" : "Spending" }); setName(""); setAmount(""); }}><Plus /></button></div></div><div><h3>Next money quest</h3><div className="money-prompt"><Wallet /><p>Do one weekly money check: upcoming bills, one choice, then close the app.</p></div><div className="food-notes"><span>Savings remaining</span><b>${Math.max(0, money.savingsGoal - money.saved).toLocaleString()}</b><span>Current approach</span><b>Local, manual</b></div></div></div></section>;
 }
+function PeopleWorkbench({ people, actions }) { return <section className="workbench"><div className="workbench-heading"><div><p className="eyebrow">Connection, without surveillance</p><h2>People you want to keep close.</h2><p>Remember the details that matter. The app never counts messages or tries to score a relationship.</p></div><Heart /></div><div className="people-list">{people.map((person) => <article className="person-card" key={person.id}><span>{person.name.slice(0,1)}</span><div><p>{person.relation}</p><h3>{person.name}</h3><small>Last meaningful contact {formatDate(person.lastContact)} · {person.note}</small></div><button className="secondary" onClick={() => actions.touchPerson(person.id)}>Connected today <Check /></button></article>)}</div></section>; }
+function TennisWorkbench({ tennis, actions }) { const [title, setTitle] = useState(""); const [minutes, setMinutes] = useState(""); return <section className="workbench"><div className="workbench-heading"><div><p className="eyebrow">Player and coach development</p><h2>Take the court with a focus.</h2><p>Log practice notes, matches, and coaching plans—then use the reflection to choose the next deliberate skill.</p></div><CircleDot /></div><div className="workbench-grid"><div><h3>Recent court sessions</h3>{tennis.sessions.map((session) => <div className="log-row" key={session.id}><span><CircleDot /></span><div><b>{session.title}</b><small>{formatDate(session.date)} · {session.note}</small></div><em>{session.minutes}m</em></div>)}<div className="inline-form"><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Practice, match, or plan" /><input value={minutes} onChange={(e) => setMinutes(e.target.value)} type="number" placeholder="Minutes" /><button className="secondary" onClick={() => { if (!title.trim()) return; actions.addTennisSession({ title, minutes, note: "" }); setTitle(""); setMinutes(""); }}><Plus /></button></div></div><div><h3>Reflection cue</h3><div className="money-prompt"><Target /><p>What one skill improved? What will you deliberately practice next time?</p></div></div></div></section>; }
 
-function formatChartDate(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "numeric",
-    day: "numeric",
-    year: "2-digit",
-  }).format(date);
+function Quests({ state, actions }) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const visible = state.quests.filter((q) => q.status === "active" && (filter === "all" || q.type === filter));
+  const groups = [["main", "Main quests", "Your season’s defining outcomes."], ["weekly", "This week", "A small number of concrete commitments."], ["daily", "Today", "What deserves your attention right now."], ["side", "Side quests", "Useful, optional, and never guilt-inducing."]];
+  return <>
+    <PageIntro kicker="Make the next move clear" title="Quests with a purpose." text="Every quest connects to a pillar—and, when it matters, a longer-term goal." aside={<button className="primary add-quest" onClick={() => setOpen(true)}><Plus /> New quest</button>} />
+    <div className="quest-filters">{["all", "main", "weekly", "daily", "side", "recurring"].map((f) => <button className={filter === f ? "selected" : ""} onClick={() => setFilter(f)} key={f}>{f === "all" ? "All active" : f}</button>)}</div>
+    <section className="quest-board">{groups.map(([type, title, text]) => {
+      const quests = visible.filter((q) => q.type === type);
+      return <div className="quest-column" key={type}><div><p className="eyebrow">{text}</p><h2>{title}</h2></div>{quests.length ? quests.map((q) => <QuestCard key={q.id} quest={q} state={state} actions={actions} />) : <Empty text="Nothing here right now." />}</div>;
+    })}<div className="quest-column"><div><p className="eyebrow">Keep returning</p><h2>Recurring</h2></div>{visible.filter((q) => q.type === "recurring").map((q) => <QuestCard key={q.id} quest={q} state={state} actions={actions} />)}</div></section>
+    {open && <QuestForm state={state} actions={actions} close={() => setOpen(false)} />}
+  </>;
 }
+function QuestCard({ quest, state, actions }) { const p = pillar(quest.pillarId); const goal = state.goals.find((g) => g.id === quest.goalId); return <article className="quest-card" style={{ "--quest-color": p.color }}><div className="quest-card-top"><span>{p.short}</span><b>+{quest.xp} XP</b></div><h3>{quest.title}</h3>{goal && <p className="linked-goal">↳ {goal.title}</p>}{quest.note && <p>{quest.note}</p>}<div className="quest-card-foot"><small>{quest.due ? (quest.due === today() ? "Today" : `Due ${formatDate(quest.due)}`) : "No deadline"}</small><button onClick={() => actions.completeQuest(quest.id)}><Check /> Complete</button></div></article>; }
+function QuestForm({ state, actions, close }) { const [form, setForm] = useState({ title: "", pillarId: "career", type: "weekly", due: today(), goalId: "", xp: 50 }); const set = (key, value) => setForm((f) => ({ ...f, [key]: value })); return <Modal close={close} title="Create a quest"><p className="modal-copy">Give it a clear finish line. The app will show the connection to its parent goal.</p><label>What will you finish?<input autoFocus value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Draft project case study" /></label><div className="form-pair"><label>Pillar<select value={form.pillarId} onChange={(e) => set("pillarId", e.target.value)}>{PILLARS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label>Type<select value={form.type} onChange={(e) => set("type", e.target.value)}>{["daily","weekly","side","main","recurring"].map((x) => <option key={x}>{x}</option>)}</select></label></div><div className="form-pair"><label>Finish by<input type="date" value={form.due} onChange={(e) => set("due", e.target.value)} /></label><label>Linked goal<select value={form.goalId} onChange={(e) => set("goalId", e.target.value)}><option value="">No parent goal</option>{state.goals.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}</select></label></div><button className="primary" onClick={() => { if (!form.title.trim()) return; actions.addQuest(form); close(); }}>Create quest <Plus /></button></Modal>; }
 
-function domainCount(state, id) {
-  if (id === "food") return state.food.meals.length + state.food.recipes.length;
-  if (id === "finances") {
-    return (
-      state.finances.entries.length +
-      state.finances.bills.length +
-      state.finances.categories.length +
-      state.finances.debts.length +
-      state.finances.goals.length +
-      state.finances.subscriptions.length
-    );
-  }
-  if (id === "fitness") return state.fitness.workouts.length + state.fitness.habits.length;
-  return 0;
-}
+function Progress({ state, data, actions }) { const season = state.seasons.find((s) => s.id === state.profile.currentSeasonId); const [review, setReview] = useState(false); return <><PageIntro kicker="Evidence, not a report card" title="Your progress has a shape." text="Look for what is growing, what needs care, and what you want to remember." aside={<div className="data-actions"><label className="secondary">Import<input type="file" accept="application/json" onChange={(e) => actions.importData(e.target.files?.[0])} /></label><button className="secondary" onClick={actions.exportData}>Export</button></div>} /><section className="progress-hero"><div className="alignment-big"><small>Current alignment</small><b>{data.alignment}</b><span>Based on your priorities, reflection, and recent meaningful action.</span></div><div className="xp-overview"><div><p className="eyebrow">This season</p><h2>{data.totalXP} <small>XP earned</small></h2><p>{data.activeDays} active days this week. Consistency is a rhythm, not a chain.</p></div><div className="season-note"><p>{season?.intention}</p><b>{season?.label}</b></div></div></section><SeasonCard season={season} state={state} data={data} actions={actions} /><section className="progress-grid"><div className="chart-card"><SectionHeader icon={Zap} eyebrow="Experience" title="Pillar levels" /><div className="bar-chart">{PILLARS.map((p) => <div className="bar-row" key={p.id}><span>{p.short}</span><i><em style={{ width: `${Math.min(100, data.xpByPillar[p.id] / 6)}%`, background: p.color }} /></i><b>Lv {data.levels[p.id].level}</b></div>)}</div></div><div className="review-card"><SectionHeader icon={RotateCcw} eyebrow="Sunday ritual" title="Weekly review" /><p>Rate the areas you chose, name what helped, then make next week smaller and clearer.</p><button className="primary" onClick={() => setReview(true)}>Start weekly review <ChevronRight /></button><div className="review-prompts"><span>What went well?</span><span>What felt neglected?</span><span>What changes next week?</span></div></div></section><section className="achievement-section"><SectionHeader icon={Award} eyebrow="Collected along the way" title="Achievements" /><div className="achievement-grid">{ACHIEVEMENTS.map(([id, name, description, category]) => { const isEarned = state.achievements.includes(id); return <button key={id} className={`achievement ${isEarned ? "earned" : ""} ${category === "hidden" && !isEarned ? "hidden" : ""}`} onClick={() => !isEarned && category !== "hidden" && actions.award(id)}><span>{isEarned ? <Trophy /> : <Award />}</span><div><b>{category === "hidden" && !isEarned ? "???" : name}</b><p>{category === "hidden" && !isEarned ? "A secret is waiting." : description}</p></div></button>; })}</div></section><section className="timeline-section"><SectionHeader icon={MapPin} eyebrow="Your story" title="Life timeline" /><Timeline items={state.timeline} /></section>{review && <WeeklyReview state={state} actions={actions} close={() => setReview(false)} />}</>; }
+function SeasonCard({ season, state, data, actions }) { const [recap, setRecap] = useState(season?.recap || ""); if (!season) return null; const objectives = state.goals.filter((goal) => season.objectives.includes(goal.id)); return <section className="season-card"><div><p className="eyebrow"><Trophy /> Current season</p><h2>{season.title}</h2><p>{season.intention}</p><div className="season-priority-list">{season.priorities.map((id) => <span key={id}>{pillar(id).short}</span>)}</div></div><div className="season-objectives"><p className="eyebrow">Major objectives</p>{objectives.map((goal) => <ProgressLine key={goal.id} label={goal.title} value={goal.progress} color={pillar(goal.pillarId).color} />)}<label>Season lesson / recap<textarea value={recap} onChange={(e) => setRecap(e.target.value)} placeholder="What will you carry forward?" /></label><button className="secondary" onClick={() => actions.update((s) => ({ ...s, seasons: s.seasons.map((item) => item.id === season.id ? { ...item, recap } : item) }))}>Save recap <Check /></button></div></section>; }
+function WeeklyReview({ state, actions, close }) { const [form, setForm] = useState({ win: "", neglected: "", focus: "" }); return <Modal close={close} title="Weekly review"><p className="modal-copy">Use the evidence, then choose less for next week. This is planning, not a performance review.</p><label>What went well?<textarea value={form.win} onChange={(e) => setForm({ ...form, win: e.target.value })} /></label><label>What felt neglected—and was it intentional?<textarea value={form.neglected} onChange={(e) => setForm({ ...form, neglected: e.target.value })} /></label><label>What should matter next week?<textarea value={form.focus} onChange={(e) => setForm({ ...form, focus: e.target.value })} /></label><button className="primary" onClick={() => { actions.checkIn({ ...form, type: "weekly" }); close(); }}>Save weekly review <Check /></button></Modal>; }
+function Timeline({ items }) { return <div className="timeline">{[...items].sort((a,b) => b.date.localeCompare(a.date)).map((item) => <article key={item.id}><time>{formatDate(item.date, { month: "short", day: "numeric", year: "numeric" })}</time><span className={`timeline-dot ${item.type}`} /><div><b>{item.title}</b><p>{item.note || (item.type === "memory" ? "A moment worth keeping." : item.type === "quest" ? "A meaningful quest completed." : "Part of your growing story.")}</p></div></article>)}</div>; }
 
-function SideRail({ route, stats }) {
-  const navItems = [
-    { id: "home", label: "Morning", Icon: Home, count: stats.dashboardCount, href: "#/" },
-    ...domains.map((domain) => ({ ...domain, count: statsForNav(domain.id, stats), href: `#/${domain.id}` })),
+function Journal({ state, actions }) { const [form, setForm] = useState({ body: "", pillarId: "mind", goalId: "", memory: false }); const [memories, setMemories] = useState(false); const entries = memories ? state.journal.filter((j) => j.memory) : state.journal; return <><PageIntro kicker="A private place to notice" title="Journal, without a quota." text="Write freely. Link a thought only when the connection helps you remember it later." aside={<button className="secondary" onClick={() => actions.addMemory({ title: "A small moment worth remembering", note: "Add the details in your journal.", pillarId: "fun" })}><Plus /> Save memory</button>} /><section className="journal-layout"><div className="journal-compose"><p className="eyebrow"><PenLine /> Today’s entry</p><textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="What is on your mind? What did today teach you?" /><div className="journal-meta"><select value={form.pillarId} onChange={(e) => setForm({ ...form, pillarId: e.target.value })}>{PILLARS.map((p) => <option key={p.id} value={p.id}>{p.short}</option>)}</select><select value={form.goalId} onChange={(e) => setForm({ ...form, goalId: e.target.value })}><option value="">No linked goal</option>{state.goals.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}</select><label><input type="checkbox" checked={form.memory} onChange={(e) => setForm({ ...form, memory: e.target.checked })} /> Save to timeline</label><button className="primary" onClick={() => { if (!form.body.trim()) return; actions.addJournal(form); if (form.memory) actions.addMemory({ title: form.body.slice(0, 72), note: "Saved from journal", pillarId: form.pillarId }); setForm({ body: "", pillarId: "mind", goalId: "", memory: false }); }}>Save entry <Check /></button></div></div><aside className="journal-side"><div className="journal-tabs"><button className={!memories ? "active" : ""} onClick={() => setMemories(false)}>Entries</button><button className={memories ? "active" : ""} onClick={() => setMemories(true)}>Memories</button></div>{entries.length ? entries.map((entry) => <article className="journal-entry" key={entry.id}><div><span style={{ background: pillar(entry.pillarId).color }} /> <small>{formatDate(entry.date)} · {pillar(entry.pillarId).short}</small></div><p>{entry.body}</p></article>) : <Empty text="Your saved memories will appear here." />}</aside></section></>; }
+
+function Coach({ state, data, actions }) { const neglected = PILLARS.filter((p) => state.pillars[p.id]?.active).sort((a, b) => data.pulse[a.id] - data.pulse[b.id])[0]; const [reply, setReply] = useState(null); const prompts = [
+    ["What should I focus on today?", `Protect one ${pillar("career").short} move: ${state.quests.find((q) => q.pillarId === "career" && q.status === "active")?.title || "choose a career next step"}. Your calendar already carries tennis practice, so keep the rest light.`],
+    ["What have I been neglecting?", `${pillar(neglected.id).short} has the lowest recent pulse (${data.pulse[neglected.id]}). That is information, not a failure. A 15-minute ${pillar(neglected.id).short.toLowerCase()} action would be enough this week.`],
+    ["Plan my week", `Start with three commitments: one career quest, one health rhythm, and one person you want to make time for. Leave two evenings open so the plan has room to breathe.`],
+    ["What did I accomplish this month?", `You earned ${data.totalXP} total XP, kept an active rhythm on ${data.activeDays} days this week, and moved ${state.goals.filter((g) => g.status === "active").length} active goals forward. Your most supported pillar is ${PILLARS.sort((a,b) => data.pulse[b.id] - data.pulse[a.id])[0].short}.`],
   ];
-
-  return (
-    <aside className="side-rail" aria-label="Game of Life navigation">
-      <a className="brand-lockup" href="#/" aria-label="Game of Life home">
-        <img src="/assets/life-mark.svg" alt="" className="brand-mark" />
-        <span>Game of Life</span>
-      </a>
-      <nav className="nav-stack">
-        {navItems.map(({ id, label, Icon, count, href }) => (
-          <a className={`nav-link ${route === id || (route === "home" && id === "home") ? "active" : ""}`} href={href} key={id}>
-            <Icon />
-            <span>{label}</span>
-            <span className="nav-count">{count}</span>
-          </a>
-        ))}
-      </nav>
-      <div className="storage-note">
-        <span className="pulse-dot" aria-hidden="true"></span>
-        Local storage only
-      </div>
-    </aside>
-  );
-}
-
-function statsForNav(id, stats) {
-  return stats.domainCounts[id] ?? 0;
-}
-
-function Dashboard({ actions, state, stats }) {
-  const checkedToday = state.morning.checkedAt === todayISO();
-
-  return (
-    <>
-      <section className="hero-band">
-        <div className="hero-copy">
-          <p className="eyebrow">
-            {new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date())}
-          </p>
-          <h1>Game of Life</h1>
-          <p>Your morning command board for the practical stuff: eating, money, movement, and the small choices that compound.</p>
-          <div className="morning-row">
-            <span className="morning-chip">
-              <Calendar /> {checkedToday ? "Checked in today" : "Ready for check-in"}
-            </span>
-            <span className="morning-chip">
-              <Target /> {state.morning.focus || "Set a focus below"}
-            </span>
-          </div>
-        </div>
-        <div className="hero-visual" role="img" aria-label="Cellular board pattern for Game of Life">
-          <p className="visual-caption">Small cells, bigger patterns</p>
-        </div>
-      </section>
-
-      <section className="overview-grid" aria-label="Daily overview">
-        <StatCard accent="food" Icon={Utensils} detail="calories today" label="Food" value={stats.food.calories} />
-        <StatCard accent="food" Icon={Target} detail="calories left" label="Remaining" value={stats.food.remaining} />
-        <StatCard accent="finance" Icon={ReceiptText} detail="logged cash" label="Balance" value={currency(stats.finances.balance)} />
-        <StatCard
-          accent="fitness"
-          Icon={Dumbbell}
-          detail="done today"
-          label="Habits"
-          value={`${stats.fitness.doneHabits}/${stats.fitness.habitTotal}`}
-        />
-      </section>
-
-      <section className="domain-grid" aria-label="Life areas">
-        {domains.map((domain) => (
-          <DomainCard domain={domain} key={domain.id} state={state} />
-        ))}
-      </section>
-
-      <section className="dashboard-bottom">
-        <Panel>
-          <SectionTitle Icon={Target} title="Morning Focus" />
-          <FocusForm actions={actions} focus={state.morning.focus} />
-        </Panel>
-        <Panel>
-          <SectionTitle Icon={Check} title="Morning Check" />
-          <div className="quick-actions">
-            <button className="quick-action" onClick={actions.checkIn} type="button">
-              {checkedToday ? "Checked" : "Mark checked in"}
-            </button>
-            <button className="ghost-button" onClick={actions.seedDay} type="button">
-              Add starter entries
-            </button>
-          </div>
-        </Panel>
-      </section>
-    </>
-  );
-}
-
-function FocusForm({ actions, focus }) {
-  const [value, setValue] = useState(focus);
-
-  useEffect(() => setValue(focus), [focus]);
-
-  return (
-    <form
-      className="form-grid"
-      onSubmit={(event) => {
-        event.preventDefault();
-        actions.saveFocus(value);
-      }}
-    >
-      <div className="field">
-        <label htmlFor="focus">Today feels successful if</label>
-        <input
-          id="focus"
-          name="focus"
-          onChange={(event) => setValue(event.target.value)}
-          placeholder="Finish the workout, stay under target, prep dinner..."
-          value={value}
-        />
-      </div>
-      <button className="primary-button" type="submit">
-        <Check className="button-icon" />
-        Save focus
-      </button>
-    </form>
-  );
-}
-
-function DomainCard({ domain, state }) {
-  const { Icon } = domain;
-  return (
-    <a className="domain-card" href={`#/${domain.id}`} style={{ "--accent": domain.accent }}>
-      <div className="domain-kicker">
-        <span>
-          <Icon /> {domain.tags[0]}
-        </span>
-        <span>{domainCount(state, domain.id)} saved</span>
-      </div>
-      <h2>{domain.label}</h2>
-      <p>{domain.summary}</p>
-      <div className="domain-meta">
-        {domain.tags.map((tag) => (
-          <span className="tag" key={tag}>
-            {tag}
-          </span>
-        ))}
-      </div>
-    </a>
-  );
-}
-
-function FoodPage({ actions, state, stats }) {
-  const recentMeals = state.food.meals.filter((meal) => isWithinLastSevenDays(meal.date));
-
-  return (
-    <>
-      <PageHeader domainId="food" subtitle="Track the day without needing a full nutrition database. Meals and recipes stay private in this browser." />
-      <section className="overview-grid">
-        <StatCard accent="food" Icon={Utensils} detail="calories today" label="Eaten" value={stats.calories} />
-        <StatCard accent="food" Icon={Target} detail="against target" label="Left" value={stats.remaining} />
-        <StatCard accent="food" Icon={Calendar} detail="last 7 days" label="Meals" value={recentMeals.length} />
-        <StatCard accent="food" Icon={Check} detail="saved ideas" label="Recipes" value={state.food.recipes.length} />
-      </section>
-      <CalorieBarChart days={stats.sevenDayCalories} average={stats.sevenDayAverage} target={state.food.calorieTarget} />
-      <section className="section-grid food-accent">
-        <Panel className="food-entry-panel">
-          <SectionTitle Icon={Target} title="Calorie Tracker" />
-          <CalorieTargetForm actions={actions} progress={stats.progress} target={state.food.calorieTarget} />
-          <hr />
-          <MealForm actions={actions} recipes={state.food.recipes} />
-        </Panel>
-        <Panel className="meals-panel">
-          <SectionTitle Icon={Utensils} title="Meals" />
-          <div className="scroll-list meals-scroll">
-            <List items={recentMeals} empty="No meals logged in the last 7 days.">
-              {(meal) => (
-                <ListRow
-                  actions={actions}
-                  id={meal.id}
-                  subtitle={`${meal.kind} / ${meal.calories} cal / ${formatDate(meal.date)}`}
-                  title={meal.name}
-                  type="meal"
-                />
-              )}
-            </List>
-          </div>
-        </Panel>
-        <Panel>
-          <SectionTitle Icon={Salad} title="Recipe Log" />
-          <RecipeForm actions={actions} />
-        </Panel>
-        <Panel>
-          <SectionTitle Icon={BookOpenText} title="Saved Recipes" />
-          <List items={state.food.recipes} empty="Recipe ideas will live here.">
-            {(recipe) => <RecipeCard actions={actions} recipe={recipe} />}
-          </List>
-        </Panel>
-      </section>
-    </>
-  );
-}
-
-function CalorieTargetForm({ actions, progress, target }) {
-  const [value, setValue] = useState(target);
-
-  useEffect(() => setValue(target), [target]);
-
-  return (
-    <form
-      className="form-grid"
-      onSubmit={(event) => {
-        event.preventDefault();
-        actions.setCalorieTarget(value);
-      }}
-    >
-      <div className="field">
-        <label htmlFor="calorieTarget">Daily target</label>
-        <input id="calorieTarget" min="0" onChange={(event) => setValue(event.target.value)} type="number" value={value} />
-      </div>
-      <div aria-label="Calories progress" className="progress-shell">
-        <div className="progress-bar" style={{ "--value": `${progress}%` }}></div>
-      </div>
-      <button className="primary-button" type="submit">
-        <Check className="button-icon" />
-        Save target
-      </button>
-    </form>
-  );
-}
-
-function MealForm({ actions, recipes }) {
-  const [meal, setMeal] = useState({
-    calories: "",
-    date: todayISO(),
-    kind: "Breakfast",
-    name: "",
-    recipeId: "",
-  });
-  const [estimateState, setEstimateState] = useState({ status: "idle", message: "" });
-
-  function updateMeal(field, value) {
-    setMeal((current) => ({ ...current, [field]: value }));
-  }
-
-  function chooseRecipe(recipeId) {
-    const recipe = recipes.find((item) => item.id === recipeId);
-    setMeal((current) => ({
-      ...current,
-      calories: recipe?.calories ? String(recipe.calories) : "",
-      name: recipe?.name || "",
-      recipeId,
-    }));
-    setEstimateState({ status: "idle", message: "" });
-  }
-
-  async function estimateCalories() {
-    const description = meal.name.trim();
-    if (!description) {
-      setEstimateState({ status: "error", message: "Enter a meal description first." });
-      return;
-    }
-
-    setEstimateState({ status: "loading", message: "Estimating..." });
-
-    try {
-      const puter = await loadPuter();
-      const response = await puter.ai.chat(
-        `Estimate the total calories for this meal: "${description}". Use a reasonable typical serving if quantities are missing. Return only JSON in this shape: {"calories": 520, "basis": "brief serving assumption"}. Do not use a calorie range.`,
-        { model: "openai/gpt-5.4-nano" },
-      );
-      const text = extractAiText(response);
-      const estimate = parseCalorieEstimate(text);
-
-      if (!estimate) throw new Error("No calorie estimate returned");
-
-      setMeal((current) => ({ ...current, calories: String(estimate.calories) }));
-      setEstimateState({
-        status: "success",
-        message: `Estimated ${estimate.calories} cal${estimate.basis ? `: ${estimate.basis}` : ""}. Adjust if your portion differs.`,
-      });
-    } catch {
-      setEstimateState({ status: "error", message: "Estimate unavailable right now. Enter calories manually." });
-    }
-  }
-
-  return (
-    <form
-      className="form-grid two-col"
-      onSubmit={(event) => {
-        event.preventDefault();
-        actions.addMeal(meal);
-        setMeal({ calories: "", date: todayISO(), kind: "Breakfast", name: "", recipeId: "" });
-        setEstimateState({ status: "idle", message: "" });
-      }}
-    >
-      <div className="field full-span">
-        <label htmlFor="mealRecipe">Use saved recipe</label>
-        <select id="mealRecipe" name="recipeId" onChange={(event) => chooseRecipe(event.target.value)} value={meal.recipeId}>
-          <option value="">Manual meal</option>
-          {recipes.map((recipe) => (
-            <option key={recipe.id} value={recipe.id}>
-              {recipe.name}
-              {recipe.calories ? ` / ${recipe.calories} cal` : ""}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="field">
-        <label htmlFor="mealName">Meal</label>
-        <input
-          id="mealName"
-          name="name"
-          onChange={(event) => updateMeal("name", event.target.value)}
-          placeholder="Breakfast bowl"
-          required
-          value={meal.name}
-        />
-      </div>
-      <div className="field">
-        <label htmlFor="mealCalories">Calories</label>
-        <div className="estimate-input-row">
-          <input
-            id="mealCalories"
-            min="0"
-            name="calories"
-            onChange={(event) => updateMeal("calories", event.target.value)}
-            placeholder="520"
-            required
-            type="number"
-            value={meal.calories}
-          />
-          <button
-            className="estimate-button"
-            disabled={estimateState.status === "loading"}
-            onClick={estimateCalories}
-            title="Estimate calories with AI"
-            type="button"
-          >
-            <Sparkles />
-            {estimateState.status === "loading" ? "Thinking" : "Estimate"}
-          </button>
-        </div>
-      </div>
-      {estimateState.message && (
-        <p className={`estimate-status ${estimateState.status} full-span`} role="status">
-          {estimateState.message}
-        </p>
-      )}
-      <div className="field">
-        <label htmlFor="mealDate">Date</label>
-        <input id="mealDate" name="date" onChange={(event) => updateMeal("date", event.target.value)} type="date" value={meal.date} />
-      </div>
-      <div className="field">
-        <label htmlFor="mealKind">Kind</label>
-        <select id="mealKind" name="kind" onChange={(event) => updateMeal("kind", event.target.value)} value={meal.kind}>
-          <option>Breakfast</option>
-          <option>Lunch</option>
-          <option>Dinner</option>
-          <option>Snack</option>
-        </select>
-      </div>
-      <button className="primary-button" type="submit">
-        <Plus className="button-icon" />
-        Add meal
-      </button>
-    </form>
-  );
-}
-
-function extractAiText(response) {
-  if (typeof response === "string") return response;
-  if (typeof response?.message?.content === "string") return response.message.content;
-  if (Array.isArray(response?.message?.content)) {
-    return response.message.content.map((part) => part.text || "").join("");
-  }
-  return String(response || "");
-}
-
-function parseCalorieEstimate(text) {
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0]);
-      const calories = Math.round(Number(parsed.calories));
-      if (Number.isFinite(calories) && calories >= 0) {
-        return { calories, basis: typeof parsed.basis === "string" ? parsed.basis.trim() : "" };
-      }
-    } catch {
-      // Fall through to numeric extraction if the model adds non-JSON text.
-    }
-  }
-
-  const numericMatch = text.match(/\b(\d{1,5})\b/);
-  if (!numericMatch) return null;
-
-  return { calories: Math.round(Number(numericMatch[1])), basis: "" };
-}
-
-function RecipeForm({ actions }) {
-  return (
-    <form className="form-grid" onSubmit={(event) => handleSubmit(event, actions.addRecipe)}>
-      <Field id="recipeName" label="Recipe" name="name" placeholder="Lemon chicken rice bowls" required />
-      <Field id="recipeCalories" label="Calories" min="0" name="calories" placeholder="620" type="number" />
-      <div className="field">
-        <label htmlFor="recipeIngredients">Ingredients</label>
-        <textarea
-          id="recipeIngredients"
-          name="ingredients"
-          placeholder={"Chicken breast\nRice\nLemon\nGreek yogurt"}
-        ></textarea>
-      </div>
-      <div className="field">
-        <label htmlFor="recipeInstructions">Instructions</label>
-        <textarea id="recipeInstructions" name="instructions" placeholder="Prep ingredients, cook, assemble, and note any tweaks for next time."></textarea>
-      </div>
-      <button className="primary-button" type="submit">
-        <Plus className="button-icon" />
-        Save recipe
-      </button>
-    </form>
-  );
-}
-
-function RecipeCard({ actions, recipe }) {
-  const sections = [
-    { label: "Calories", value: recipe.calories ? `${recipe.calories} cal` : "" },
-    { label: "Ingredients", value: recipe.ingredients },
-    { label: "Instructions", value: recipe.instructions },
-    { label: "Notes", value: !recipe.ingredients && !recipe.instructions ? recipe.notes : "" },
-  ].filter((section) => section.value);
-
-  return (
-    <article className="list-row recipe-row">
-      <div>
-        <p className="row-title">{recipe.name}</p>
-        {sections.length ? (
-          <div className="recipe-sections">
-            {sections.map((section) => (
-              <section className="recipe-section" key={section.label}>
-                <h3>{section.label}</h3>
-                <p>{section.value}</p>
-              </section>
-            ))}
-          </div>
-        ) : (
-          <p className="row-subtitle">No ingredients or instructions yet.</p>
-        )}
-      </div>
-      <div className="row-actions">
-        <DeleteButton actions={actions} id={recipe.id} type="recipe" />
-      </div>
-    </article>
-  );
-}
-
-function FinancesPage({ actions, activeTab, setActiveTab, state, stats }) {
-  const tabs = ["overview", "budget", "entries", "bills", "goals", "debts", "subscriptions"];
-
-  return (
-    <>
-      <PageHeader
-        domainId="finances"
-        subtitle="A full local budgeting desk for cashflow, spending categories, bills, goals, debt, subscriptions, and monthly planning."
-      />
-      <section className="overview-grid">
-        <StatCard accent="finance" Icon={WalletCards} detail="this month" label="Cashflow" value={currency(stats.monthlyBalance)} />
-        <StatCard accent="finance" Icon={Check} detail="this month" label="Income" value={currency(stats.monthlyIncome)} />
-        <StatCard accent="finance" Icon={Target} detail="this month" label="Spent" value={currency(stats.monthlyExpenses)} />
-        <StatCard accent="finance" Icon={Calendar} detail="still due" label="Bills" value={stats.dueBills} />
-        <StatCard accent="finance" Icon={CreditCard} detail="monthly total" label="Subscriptions" value={currency(stats.subscriptionsTotal)} />
-        <StatCard accent="finance" Icon={Landmark} detail="tracked total" label="Debt" value={currency(stats.debtTotal)} />
-      </section>
-      <Panel className="finance-accent">
-        <div className="pill-tabs" role="group" aria-label="Finance sections">
-          {tabs.map((tab) => (
-            <button
-              aria-pressed={activeTab === tab}
-              className="pill-tab"
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              type="button"
-            >
-              {titleCase(tab)}
-            </button>
-          ))}
-        </div>
-        {activeTab === "overview" && <FinanceOverview state={state} stats={stats} />}
-        {activeTab === "budget" && <BudgetPlanner actions={actions} categories={state.finances.categories} stats={stats} />}
-        {activeTab === "entries" && (
-          <FinanceEntries actions={actions} categories={state.finances.categories} entries={state.finances.entries} />
-        )}
-        {activeTab === "bills" && <Bills actions={actions} bills={state.finances.bills} />}
-        {activeTab === "goals" && <Goals actions={actions} goals={state.finances.goals} />}
-        {activeTab === "debts" && <Debts actions={actions} debts={state.finances.debts} stats={stats} />}
-        {activeTab === "subscriptions" && (
-          <Subscriptions actions={actions} categories={state.finances.categories} stats={stats} subscriptions={state.finances.subscriptions} />
-        )}
-      </Panel>
-    </>
-  );
-}
-
-function FinanceOverview({ state, stats }) {
-  return (
-    <div className="finance-board">
-      <section className="finance-block">
-        <SectionTitle Icon={PiggyBank} title="Budget Health" />
-        <div className="money-metric-grid">
-          <Metric label="Budgeted" value={currency(stats.budgeted)} />
-          <Metric label="Spent" value={currency(stats.budgetSpent)} />
-          <Metric label={stats.budgetRemaining >= 0 ? "Left" : "Over"} value={currency(Math.abs(stats.budgetRemaining))} />
-        </div>
-        <BudgetCategoryList actions={null} categories={stats.categoryRows.slice(0, 6)} compact />
-      </section>
-      <section className="finance-block">
-        <SectionTitle Icon={BadgeDollarSign} title="Spending Mix" />
-        <BudgetSplit groupRows={stats.groupRows} income={stats.monthlyIncome} />
-      </section>
-      <section className="finance-block">
-        <SectionTitle Icon={Calendar} title="Upcoming Bills" />
-        <List items={stats.upcomingBills} empty="No unpaid bills tracked.">
-          {(bill) => (
-            <ListRow
-              actions={null}
-              id={bill.id}
-              subtitle={`${currency(Number(bill.amount))} / due ${formatDate(bill.due)}`}
-              title={bill.name}
-              type="bill"
-            />
-          )}
-        </List>
-      </section>
-      <section className="finance-block">
-        <SectionTitle Icon={Target} title="Goal Progress" />
-        <List items={state.finances.goals.slice(0, 4)} empty="Savings goals will show here.">
-          {(goal) => <GoalProgressRow actions={null} goal={goal} />}
-        </List>
-      </section>
-    </div>
-  );
-}
-
-function BudgetPlanner({ actions, categories, stats }) {
-  return (
-    <div className="section-grid">
-      <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addBudgetCategory)}>
-        <Field id="categoryName" label="Category" name="name" placeholder="Car maintenance" required />
-        <Field id="categoryLimit" label="Monthly limit" min="0" name="limit" placeholder="150" required step="0.01" type="number" />
-        <div className="field">
-          <label htmlFor="categoryGroup">Group</label>
-          <select id="categoryGroup" name="group">
-            <option>Needs</option>
-            <option>Wants</option>
-            <option>Savings</option>
-            <option>Debt</option>
-          </select>
-        </div>
-        <button className="primary-button" type="submit">
-          <Plus className="button-icon" />
-          Add category
-        </button>
-      </form>
-      <div>
-        <div className="money-metric-grid">
-          <Metric label="Planned" value={currency(stats.budgeted)} />
-          <Metric label="Remaining" value={currency(stats.budgetRemaining)} />
-          <Metric label="Over budget" value={currency(stats.overBudget)} />
-        </div>
-        <BudgetCategoryList actions={actions} categories={stats.categoryRows} />
-      </div>
-    </div>
-  );
-}
-
-function FinanceEntries({ actions, categories, entries }) {
-  return (
-    <div className="section-grid">
-      <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addFinanceEntry)}>
-        <Field id="entryName" label="Entry" name="name" placeholder="Paycheck, groceries, gas..." required />
-        <Field id="entryAmount" label="Amount" min="0" name="amount" placeholder="75" required step="0.01" type="number" />
-        <div className="field">
-          <label htmlFor="entryType">Type</label>
-          <select id="entryType" name="type">
-            <option value="expense">Expense</option>
-            <option value="income">Income</option>
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="entryCategory">Category</label>
-          <select id="entryCategory" name="category">
-            <option>Uncategorized</option>
-            {categories.map((category) => (
-              <option key={category.id}>{category.name}</option>
-            ))}
-          </select>
-        </div>
-        <Field id="entryDate" label="Date" name="date" type="date" value={todayISO()} />
-        <button className="primary-button" type="submit">
-          <Plus className="button-icon" />
-          Add entry
-        </button>
-      </form>
-      <List items={entries} empty="No money entries yet.">
-        {(entry) => (
-          <ListRow
-            actions={actions}
-            id={entry.id}
-            subtitle={`${titleCase(entry.type)} / ${entry.category || "Uncategorized"} / ${currency(Number(entry.amount))} / ${formatDate(entry.date)}`}
-            title={entry.name}
-            type="financeEntry"
-          />
-        )}
-      </List>
-    </div>
-  );
-}
-
-function Bills({ actions, bills }) {
-  return (
-    <div className="section-grid">
-      <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addBill)}>
-        <Field id="billName" label="Bill" name="name" placeholder="Rent" required />
-        <Field id="billAmount" label="Amount" min="0" name="amount" placeholder="1800" required step="0.01" type="number" />
-        <Field id="billDue" label="Due date" name="due" type="date" value={todayISO()} />
-        <button className="primary-button" type="submit">
-          <Plus className="button-icon" />
-          Add bill
-        </button>
-      </form>
-      <List items={bills} empty="No bills saved yet.">
-        {(bill) => (
-          <CheckRow
-            checked={bill.paid}
-            id={bill.id}
-            onToggle={actions.toggleBill}
-            subtitle={`${currency(Number(bill.amount))} / due ${formatDate(bill.due)} / ${bill.paid ? "paid" : "open"}`}
-            title={bill.name}
-          >
-            <DeleteButton actions={actions} id={bill.id} type="bill" />
-          </CheckRow>
-        )}
-      </List>
-    </div>
-  );
-}
-
-function Goals({ actions, goals }) {
-  return (
-    <div className="section-grid">
-      <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addGoal)}>
-        <Field id="goalName" label="Goal" name="name" placeholder="Emergency fund" required />
-        <Field id="goalTarget" label="Target" min="0" name="target" placeholder="5000" required step="0.01" type="number" />
-        <Field id="goalSaved" label="Saved" min="0" name="saved" placeholder="1200" step="0.01" type="number" />
-        <button className="primary-button" type="submit">
-          <Plus className="button-icon" />
-          Add goal
-        </button>
-      </form>
-      <List items={goals} empty="Savings goals will show here.">
-        {(goal) => <GoalProgressRow actions={actions} goal={goal} />}
-      </List>
-    </div>
-  );
-}
-
-function Debts({ actions, debts, stats }) {
-  return (
-    <div className="section-grid">
-      <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addDebt)}>
-        <Field id="debtName" label="Debt" name="name" placeholder="Credit card, car loan..." required />
-        <Field id="debtBalance" label="Balance" min="0" name="balance" placeholder="3200" required step="0.01" type="number" />
-        <Field id="debtApr" label="APR %" min="0" name="apr" placeholder="19.99" step="0.01" type="number" />
-        <Field id="debtMinimum" label="Min payment" min="0" name="minimum" placeholder="95" step="0.01" type="number" />
-        <button className="primary-button" type="submit">
-          <Plus className="button-icon" />
-          Add debt
-        </button>
-      </form>
-      <div>
-        <div className="money-metric-grid">
-          <Metric label="Debt total" value={currency(stats.debtTotal)} />
-          <Metric label="Min payments" value={currency(stats.debtMinimums)} />
-        </div>
-        <List items={debts} empty="Track debts here for payoff visibility.">
-          {(debt) => (
-            <ListRow
-              actions={actions}
-              id={debt.id}
-              subtitle={`${currency(Number(debt.balance))} balance / ${Number(debt.apr || 0)}% APR / ${currency(Number(debt.minimum))} min`}
-              title={debt.name}
-              type="debt"
-            />
-          )}
-        </List>
-      </div>
-    </div>
-  );
-}
-
-function Subscriptions({ actions, categories, stats, subscriptions }) {
-  return (
-    <div className="section-grid">
-      <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addSubscription)}>
-        <Field id="subscriptionName" label="Subscription" name="name" placeholder="Netflix, gym, cloud storage..." required />
-        <Field id="subscriptionAmount" label="Monthly amount" min="0" name="amount" placeholder="19.99" required step="0.01" type="number" />
-        <Field id="subscriptionDay" label="Billing day" max="31" min="1" name="billingDay" placeholder="15" type="number" />
-        <div className="field">
-          <label htmlFor="subscriptionCategory">Category</label>
-          <select id="subscriptionCategory" name="category">
-            {categories.map((category) => (
-              <option key={category.id}>{category.name}</option>
-            ))}
-          </select>
-        </div>
-        <button className="primary-button" type="submit">
-          <Plus className="button-icon" />
-          Add subscription
-        </button>
-      </form>
-      <div>
-        <div className="money-metric-grid">
-          <Metric label="Monthly total" value={currency(stats.subscriptionsTotal)} />
-          <Metric label="Yearly run rate" value={currency(stats.subscriptionsTotal * 12)} />
-        </div>
-        <List items={subscriptions} empty="Recurring subscriptions will show here.">
-          {(subscription) => (
-            <ListRow
-              actions={actions}
-              id={subscription.id}
-              subtitle={`${currency(Number(subscription.amount))}/mo / bills on day ${subscription.billingDay || 1} / ${subscription.category}`}
-              title={subscription.name}
-              type="subscription"
-            />
-          )}
-        </List>
-      </div>
-    </div>
-  );
-}
-
-function FitnessPage({ actions, state, stats }) {
-  return (
-    <>
-      <PageHeader domainId="fitness" subtitle="A daily movement log for workouts, steps, and simple habits that deserve less friction." />
-      <section className="overview-grid">
-        <StatCard accent="fitness" Icon={Dumbbell} detail="workouts logged" label="Today" value={stats.todaysWorkouts.length} />
-        <StatCard accent="fitness" Icon={Check} detail="completed" label="Habits" value={`${stats.doneHabits}/${stats.habitTotal}`} />
-        <StatCard accent="fitness" Icon={Calendar} detail="logged total" label="Workouts" value={state.fitness.workouts.length} />
-        <StatCard accent="fitness" Icon={Target} detail="all time" label="Minutes" value={stats.totalMinutes} />
-      </section>
-      <section className="section-grid fitness-accent">
-        <Panel>
-          <SectionTitle Icon={Dumbbell} title="Workout Log" />
-          <WorkoutForm actions={actions} />
-        </Panel>
-        <Panel>
-          <SectionTitle Icon={Calendar} title="Recent Workouts" />
-          <List items={state.fitness.workouts} empty="No workouts logged yet.">
-            {(workout) => (
-              <ListRow
-                actions={actions}
-                id={workout.id}
-                subtitle={`${workout.minutes} min / ${workout.intensity} / ${formatDate(workout.date)}`}
-                title={workout.name}
-                type="workout"
-              />
-            )}
-          </List>
-        </Panel>
-        <Panel>
-          <SectionTitle Icon={Check} title="Daily Habits" />
-          <form className="form-grid" onSubmit={(event) => handleSubmit(event, actions.addHabit)}>
-            <Field id="habitName" label="Habit" name="name" placeholder="Mobility, protein, 8k steps..." required />
-            <button className="primary-button" type="submit">
-              <Plus className="button-icon" />
-              Add habit
-            </button>
-          </form>
-        </Panel>
-        <Panel>
-          <SectionTitle Icon={Target} title="Today" />
-          <List items={state.fitness.habits} empty="Add a few simple daily habits.">
-            {(habit) => (
-              <CheckRow
-                checked={habit.done}
-                id={habit.id}
-                onToggle={actions.toggleHabit}
-                subtitle={habit.done ? "Done today" : "Open today"}
-                title={habit.name}
-              >
-                <DeleteButton actions={actions} id={habit.id} type="habit" />
-              </CheckRow>
-            )}
-          </List>
-        </Panel>
-      </section>
-    </>
-  );
-}
-
-function WorkoutForm({ actions }) {
-  return (
-    <form className="form-grid two-col" onSubmit={(event) => handleSubmit(event, actions.addWorkout)}>
-      <Field id="workoutName" label="Workout" name="name" placeholder="Upper body, run, yoga..." required />
-      <Field id="workoutMinutes" label="Minutes" min="0" name="minutes" placeholder="45" required type="number" />
-      <Field id="workoutDate" label="Date" name="date" type="date" value={todayISO()} />
-      <div className="field">
-        <label htmlFor="workoutIntensity">Intensity</label>
-        <select id="workoutIntensity" name="intensity">
-          <option>Easy</option>
-          <option>Moderate</option>
-          <option>Hard</option>
-        </select>
-      </div>
-      <button className="primary-button" type="submit">
-        <Plus className="button-icon" />
-        Add workout
-      </button>
-    </form>
-  );
-}
-
-function PageHeader({ domainId, subtitle }) {
-  const domain = domains.find((item) => item.id === domainId);
-  return (
-    <header className="page-top" style={{ "--accent": domain.accent }}>
-      <a className="back-link" href="#/">
-        <ArrowLeft /> Morning board
-      </a>
-      <div>
-        <p className="eyebrow">{domain.tags.join(" / ")}</p>
-        <h1>{domain.label}</h1>
-        <p>{subtitle}</p>
-      </div>
-    </header>
-  );
-}
-
-function StatCard({ accent, detail, Icon, label, value }) {
-  return (
-    <article className={`stat-card ${accent}-accent`}>
-      <div className="stat-top">
-        <span>{label}</span>
-        <Icon className="stat-icon" />
-      </div>
-      <p className="stat-value">{value}</p>
-      <span className="tag">{detail}</span>
-    </article>
-  );
-}
-
-function Metric({ label, value }) {
-  return (
-    <div className="metric-tile">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function BudgetCategoryList({ actions, categories, compact = false }) {
-  return (
-    <div className={`budget-list ${compact ? "compact" : ""}`}>
-      {categories.map((category) => (
-        <article className={`budget-row ${category.remaining < 0 ? "over" : ""}`} key={category.id}>
-          <div className="budget-row-top">
-            <div>
-              <p className="row-title">{category.name}</p>
-              <p className="row-subtitle">
-                {category.group} / {currency(category.spent)} of {currency(category.limit)}
-              </p>
-            </div>
-            <span className="tag">{category.remaining >= 0 ? `${currency(category.remaining)} left` : `${currency(Math.abs(category.remaining))} over`}</span>
-          </div>
-          <div className="progress-shell">
-            <div className="progress-bar" style={{ "--value": `${Math.min(100, category.progress)}%` }}></div>
-          </div>
-          {actions && (
-            <div className="row-actions">
-              <DeleteButton actions={actions} id={category.id} type="budgetCategory" />
-            </div>
-          )}
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function BudgetSplit({ groupRows, income }) {
-  const guide = {
-    Needs: 50,
-    Wants: 30,
-    Savings: 20,
-    Debt: 0,
-  };
-
-  return (
-    <div className="split-stack">
-      {groupRows.map((row) => (
-        <article className="split-row" key={row.group}>
-          <div className="split-copy">
-            <p className="row-title">{row.group}</p>
-            <p className="row-subtitle">
-              {currency(row.spent)} spent / {currency(row.planned)} planned
-            </p>
-          </div>
-          <div className="split-meter">
-            <div className="split-fill" style={{ "--value": `${Math.min(100, row.percentOfIncome)}%` }}></div>
-          </div>
-          <span className="tag">{income ? `${row.percentOfIncome}%` : "0%"}</span>
-          {guide[row.group] > 0 && <small>guide: {guide[row.group]}%</small>}
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function GoalProgressRow({ actions, goal }) {
-  const target = Number(goal.target || 0);
-  const saved = Number(goal.saved || 0);
-  const progress = target ? Math.min(100, Math.round((saved / target) * 100)) : 0;
-
-  return (
-    <article className="list-row">
-      <div>
-        <p className="row-title">{goal.name}</p>
-        <p className="row-subtitle">
-          {currency(saved)} saved of {currency(target)}
-        </p>
-        <div className="progress-shell">
-          <div className="progress-bar" style={{ "--value": `${progress}%` }}></div>
-        </div>
-      </div>
-      {actions && (
-        <div className="row-actions">
-          <DeleteButton actions={actions} id={goal.id} type="goal" />
-        </div>
-      )}
-    </article>
-  );
-}
-
-function CalorieBarChart({ average, days, target }) {
-  const maxCalories = Math.max(target, average, ...days.map((day) => day.calories), 1);
-
-  return (
-    <section className="section-panel calorie-chart food-accent" aria-label="Last 7 days of calories eaten">
-      <div className="chart-heading">
-        <div>
-          <p className="eyebrow">Last 7 Days</p>
-          <h2>Calories Eaten</h2>
-        </div>
-        <div className="chart-average">
-          <span>{average}</span>
-          <small>avg/day</small>
-        </div>
-      </div>
-      <div className="bar-chart" role="img" aria-label={`Average ${average} calories per day across the last 7 days`}>
-        {days.map((day) => {
-          const height = Math.max(8, Math.round((day.calories / maxCalories) * 100));
-          return (
-            <div className="bar-day" key={day.date}>
-              <div className="bar-value">{day.calories}</div>
-              <div className="bar-track">
-                <div className="bar-fill" style={{ "--height": `${height}%` }}></div>
-              </div>
-              <div className="bar-label">{day.label}</div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function SectionTitle({ Icon, title }) {
-  return (
-    <div className="section-title">
-      <Icon />
-      <h2>{title}</h2>
-    </div>
-  );
-}
-
-function Panel({ children, className = "" }) {
-  return <div className={`section-panel ${className}`}>{children}</div>;
-}
-
-function Field({ id, label, value, ...props }) {
-  return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
-      <input id={id} defaultValue={value} {...props} />
-    </div>
-  );
-}
-
-function List({ children, empty, items }) {
-  if (!items.length) return <div className="empty-state">{empty}</div>;
-  return <div className="list-stack">{items.map((item) => <div key={item.id}>{children(item)}</div>)}</div>;
-}
-
-function ListRow({ actions, id, subtitle, title, type }) {
-  return (
-    <article className="list-row">
-      <div>
-        <p className="row-title">{title}</p>
-        <p className="row-subtitle">{subtitle}</p>
-      </div>
-      {actions && (
-        <div className="row-actions">
-          <DeleteButton actions={actions} id={id} type={type} />
-        </div>
-      )}
-    </article>
-  );
-}
-
-function CheckRow({ checked, children, id, onToggle, subtitle, title }) {
-  return (
-    <article className="list-row">
-      <label className="check-row">
-        <input checked={checked} onChange={() => onToggle(id)} type="checkbox" />
-        <span>
-          <p className="row-title">{title}</p>
-          <p className="row-subtitle">{subtitle}</p>
-        </span>
-      </label>
-      <div className="row-actions">{children}</div>
-    </article>
-  );
-}
-
-function DeleteButton({ actions, id, type }) {
-  return (
-    <button className="icon-button" onClick={() => actions.remove(type, id)} title="Delete" type="button">
-      <Trash2 />
-    </button>
-  );
-}
-
-function handleSubmit(event, callback) {
-  event.preventDefault();
-  callback(Object.fromEntries(new FormData(event.currentTarget).entries()));
-  event.currentTarget.reset();
-}
-
-function formatDate(value) {
-  if (!value) return "Today";
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(`${value}T12:00:00`));
-}
-
-function currency(value) {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value || 0);
-}
-
-function titleCase(value) {
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
-}
+  return <><PageIntro kicker="Permissioned, evidence-linked" title="Your life coach." text="A planning partner that works only with the information you intentionally keep here." aside={<div className="privacy-card"><ShieldCheck /> Journal access: <b>off by default</b></div>} /><section className="coach-layout"><div className="coach-welcome"><span><Sparkles /></span><h2>What would help right now?</h2><p>Ask for a plan, a reflection, or a smaller next step. The coach should show its reasoning and ask before making changes.</p><div className="coach-prompts">{prompts.map(([prompt, answer]) => <button key={prompt} onClick={() => setReply({ prompt, answer })}>{prompt}<ChevronRight /></button>)}</div></div><div className="coach-conversation">{reply ? <><p className="user-bubble">{reply.prompt}</p><div className="coach-bubble"><span><Sparkles /></span><p>{reply.answer}</p><small>Based on your goals, current quests, and recent check-ins. Journal text was not used.</small></div><button className="secondary" onClick={() => actions.addQuest({ title: `Follow-up: ${reply.prompt}`, pillarId: "mind", type: "side", due: today(), xp: 20 })}>Save as a side quest <Plus /></button></> : <Empty text="Choose a prompt to begin a private conversation." />}</div></section></>; }
+
+function QuickAdd({ state, actions, close }) { const [tab, setTab] = useState("quest"); const [title, setTitle] = useState(""); const [pillarId, setPillar] = useState("career"); const save = () => { if (!title.trim()) return; if (tab === "habit") actions.addHabit({ title, pillarId }); else if (tab === "memory") actions.addMemory({ title, pillarId }); else actions.addQuest({ title, pillarId, type: tab === "task" ? "daily" : "side", due: today(), xp: tab === "task" ? 10 : 30 }); close(); }; return <Modal close={close} title="Add to your life"><div className="quick-tabs">{[["quest", "Quest"], ["task", "Task"], ["habit", "Habit"], ["memory", "Memory"]].map(([id,label]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{label}</button>)}</div><label>{tab === "memory" ? "What happened?" : "What do you want to do?"}<input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tab === "memory" ? "A moment worth keeping" : "A clear, meaningful action"} /></label><label>Primary pillar<select value={pillarId} onChange={(e) => setPillar(e.target.value)}>{PILLARS.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label><button className="primary" onClick={save}>Add {tab} <Plus /></button></Modal>; }
+function Modal({ close, title, children }) { return <div className="modal-scrim" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && close()}><section className="modal" role="dialog" aria-modal="true" aria-label={title}><button className="close" onClick={close}><X /></button><h2>{title}</h2>{children}</section></div>; }
+function Empty({ text }) { return <div className="empty"><span><Sparkles /></span><p>{text}</p></div>; }
 
 export default App;

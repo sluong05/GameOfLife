@@ -1,27 +1,26 @@
 # Game of Life
 
-A local-first React morning dashboard for food, finances, fitness, and daily focus. It is built with Vite, React, and localStorage so it stays private while still being easy to deploy as a static site.
+A local-first personal operating system with a light RPG layer. It is designed for a calm daily loop: choose what matters, make a meaningful move, reflect briefly, and build a record of the life you are living.
 
-## Features
+## What is implemented
 
-- Morning dashboard with quick overview cards
-- Food page with a calorie target, 7-day calorie bar chart, scrollable meal log, and structured recipes that can become meals
-- Optional AI calorie estimate button powered by Puter.js when a meal description is entered
-- Finances page with monthly cashflow, budget categories, spending mix, income/expense entries, bills, savings goals, debts, and subscriptions
-- Fitness page with workout logs and daily habit checkboxes
-- All data is stored in the browser with `localStorage`
-- No backend or account required
+- Six core spaces: Today, Life, Quests, Progress, Journal, and Coach.
+- Ten life pillars with individual XP, levels, importance, pulse, and a Life Wheel.
+- Goal-linked main, weekly, daily, side, and recurring quests.
+- Habits with flexible weekly cadence rather than punitive streak resets.
+- Morning check-in, nightly recap, weekly-review prompts, seasonal context, achievements, and a life timeline.
+- Journal entries that can link to a pillar or goal and be saved as memories.
+- A permission-forward Coach prototype with evidence-linked planning prompts.
+- Responsive, local-only data persistence in browser `localStorage`, plus JSON export.
 
-## Run Locally
+The initial dashboard has been replaced. Existing data under `game-of-life.v1` is preserved in the browser but is not imported into the new `game-of-life.v2` model.
 
-Install dependencies and start Vite:
+## Run locally
 
 ```bash
 npm install
 npm run dev
 ```
-
-Then visit the local URL Vite prints in the terminal.
 
 ## Build
 
@@ -29,12 +28,8 @@ Then visit the local URL Vite prints in the terminal.
 npm run build
 ```
 
-## Deploy
+## Data and privacy
 
-This project can be deployed as a static site. For GitHub Pages, build with `npm run build` and publish the generated `dist` folder.
+No account or backend is required. The app stores its data in the current browser under the `game-of-life.v2` key. Use **Progress → Export your data** to keep a JSON backup. Clearing the browser’s site data removes local records.
 
-## Data
-
-Data stays in the current browser under the `game-of-life.v1` localStorage key. Clearing site data will clear the dashboard.
-
-AI calorie estimates are requested only when the `Estimate` button is pressed. That request sends the entered meal description to Puter.js for estimation; saved dashboard data otherwise remains in localStorage.
+See [PRODUCT_PLAN.md](./PRODUCT_PLAN.md) for the product strategy, the MVP/V2 boundary, data-model direction, and future integration plan.
