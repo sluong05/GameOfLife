@@ -210,6 +210,13 @@ function useStore() {
     addRoutine(period, title) {
       setState((s) => ({ ...s, routines: { ...(s.routines || starterState.routines), [period]: [...((s.routines || starterState.routines)[period] || []), { id: uid(), title: title.trim(), note: "A routine you chose for yourself." }] } }));
     },
+    removeRoutine(period, id) {
+      setState((s) => {
+        const routines = s.routines || starterState.routines;
+        const history = Object.fromEntries(Object.entries(routines.history || {}).map(([date, record]) => [date, { ...record, [period]: (record[period] || []).filter((item) => item !== id) }]));
+        return { ...s, routines: { ...routines, [period]: (routines[period] || []).filter((step) => step.id !== id), history } };
+      });
+    },
     addQuest(data) { setState((s) => ({ ...s, quests: [{ id: uid(), status: "active", xp: Number(data.xp) || 30, difficulty: "standard", ...data }, ...s.quests] })); },
     addHabit(data) { setState((s) => ({ ...s, habits: [{ id: uid(), completions: [], cadence: Number(data.cadence) || 3, ...data }, ...s.habits] })); },
     checkIn(data) { setState((s) => ({ ...s, checkins: [{ id: uid(), date: today(), ...data }, ...s.checkins] })); },
@@ -317,7 +324,7 @@ function RoutinePanel({ title, period, icon: Icon, color, routines, actions }) {
   const [newStep, setNewStep] = useState("");
   const status = routineCompletion(routines, period);
   const shade = period === "morning" ? `rgba(239, 147, 110, ${0.11 + status.ratio * 0.63})` : `rgba(111, 127, 189, ${0.10 + status.ratio * 0.62})`;
-  return <section className="routine-panel" style={{ backgroundColor: shade, "--routine-color": color }}><div className="routine-panel-head"><span><Icon /></span><div><p>{period === "morning" ? "Start of day" : "End of day"}</p><h2>{title}</h2></div><b>{status.count}<small>/{status.total}</small></b></div><div className="routine-progress"><i><em style={{ width: `${status.ratio * 100}%` }} /></i><span>{status.count === status.total ? "Complete for today" : `${status.total - status.count} small step${status.total - status.count === 1 ? "" : "s"} left`}</span></div><div className="routine-steps">{(routines[period] || []).map((step) => { const done = status.completed.includes(step.id); return <button key={step.id} className={done ? "routine-step done" : "routine-step"} onClick={() => actions.toggleRoutine(period, step.id)}><span><Check /></span><div><b>{step.title}</b><small>{step.note}</small></div></button>; })}</div><div className="routine-add"><input value={newStep} onChange={(e) => setNewStep(e.target.value)} placeholder="Add a step you care about" /><button aria-label={`Add ${period} routine step`} onClick={() => { if (!newStep.trim()) return; actions.addRoutine(period, newStep); setNewStep(""); }}><Plus /></button></div></section>;
+  return <section className="routine-panel" style={{ backgroundColor: shade, "--routine-color": color }}><div className="routine-panel-head"><span><Icon /></span><div><p>{period === "morning" ? "Start of day" : "End of day"}</p><h2>{title}</h2></div><b>{status.count}<small>/{status.total}</small></b></div><div className="routine-progress"><i><em style={{ width: `${status.ratio * 100}%` }} /></i><span>{status.count === status.total ? "Complete for today" : `${status.total - status.count} small step${status.total - status.count === 1 ? "" : "s"} left`}</span></div><div className="routine-steps">{(routines[period] || []).map((step) => { const done = status.completed.includes(step.id); return <div key={step.id} className={done ? "routine-step done" : "routine-step"}><button className="routine-check" aria-label={`${done ? "Mark incomplete" : "Complete"} ${step.title}`} onClick={() => actions.toggleRoutine(period, step.id)}><span><Check /></span><div><b>{step.title}</b><small>{step.note}</small></div></button><button className="routine-remove" aria-label={`Remove ${step.title}`} title={`Remove ${step.title}`} onClick={() => actions.removeRoutine(period, step.id)}><X /></button></div>; })}</div><div className="routine-add"><input value={newStep} onChange={(e) => setNewStep(e.target.value)} placeholder="Add a step you care about" /><button aria-label={`Add ${period} routine step`} onClick={() => { if (!newStep.trim()) return; actions.addRoutine(period, newStep); setNewStep(""); }}><Plus /></button></div></section>;
 }
 function RoutineAtlas({ routines, period }) {
   const year = new Date().getFullYear();
