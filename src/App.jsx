@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Award, BookOpen, Brain, CalendarDays, Check, ChevronRight, CircleDot, Coffee,
   Compass, Dumbbell, Flame, Heart, Home, Leaf, MapPin, Menu, Moon, MoreHorizontal,
-  PenLine, Plus, RotateCcw, ShieldCheck, Sparkles, Target, Trophy, Users, Wallet,
+  PenLine, Plus, RotateCcw, ShieldCheck, Sparkles, Sun, Target, Trophy, Users, Wallet,
   X, Zap,
 } from "lucide-react";
 
@@ -104,6 +104,13 @@ const levelFromXP = (xp, overall = false) => {
   return { level, current: remainder, next: (overall ? 250 : 100) + (overall ? 50 : 25) * level };
 };
 const daysAgo = (days) => dateISO(new Date(Date.now() - days * DAY));
+const routineHistory = () => Object.fromEntries([
+  [1, ["make-bed", "water", "sunlight"], ["wind-down", "journal", "prepare-tomorrow"]],
+  [2, ["make-bed", "water", "plan-day"], ["wind-down", "screens-off"]],
+  [3, ["make-bed", "water", "sunlight", "plan-day"], ["wind-down", "journal", "prepare-tomorrow", "screens-off"]],
+  [4, ["make-bed", "water"], ["wind-down", "journal"]],
+  [6, ["make-bed", "water", "sunlight"], ["wind-down", "prepare-tomorrow"]],
+].map(([days, morning, night]) => [daysAgo(days), { morning, night }]));
 
 const starterState = {
   profile: { name: "Steven", currentSeasonId: "fall-2026" },
@@ -131,6 +138,21 @@ const starterState = {
     { id: "water", title: "Fill water bottle", pillarId: "food", cadence: 7, completions: [daysAgo(1), daysAgo(2), daysAgo(3), daysAgo(4), daysAgo(5)] },
     { id: "read", title: "Read before bed", pillarId: "learning", cadence: 4, completions: [daysAgo(2), daysAgo(4), daysAgo(5)] },
   ],
+  routines: {
+    morning: [
+      { id: "make-bed", title: "Make the bed", note: "Start with a small reset." },
+      { id: "water", title: "Drink water", note: "One full glass before coffee." },
+      { id: "sunlight", title: "Get some sunlight", note: "Step outside for a few minutes." },
+      { id: "plan-day", title: "Choose today’s focus", note: "One meaningful move is enough." },
+    ],
+    night: [
+      { id: "wind-down", title: "Wind down", note: "Make the room and mind quieter." },
+      { id: "journal", title: "Write a few lines", note: "Capture the win or the lesson." },
+      { id: "prepare-tomorrow", title: "Set up tomorrow", note: "Remove one piece of morning friction." },
+      { id: "screens-off", title: "Put screens away", note: "Let the day actually end." },
+    ],
+    history: { ...routineHistory(), [today()]: { morning: ["make-bed", "water"], night: [] } },
+  },
   xpEvents: [
     { id: "xp1", pillarId: "career", amount: 180, label: "Interview preparation", date: daysAgo(1) },
     { id: "xp2", pillarId: "health", amount: 260, label: "Training sessions", date: daysAgo(2) },
@@ -175,6 +197,18 @@ function useStore() {
     },
     toggleHabit(id) {
       setState((s) => ({ ...s, habits: s.habits.map((habit) => habit.id === id ? { ...habit, completions: habit.completions.includes(today()) ? habit.completions.filter((date) => date !== today()) : [...habit.completions, today()] } : habit) }));
+    },
+    toggleRoutine(period, id) {
+      setState((s) => {
+        const routines = s.routines || starterState.routines;
+        const day = routines.history?.[today()] || { morning: [], night: [] };
+        const completed = day[period] || [];
+        const nextCompleted = completed.includes(id) ? completed.filter((item) => item !== id) : [...completed, id];
+        return { ...s, routines: { ...routines, history: { ...routines.history, [today()]: { ...day, [period]: nextCompleted } } } };
+      });
+    },
+    addRoutine(period, title) {
+      setState((s) => ({ ...s, routines: { ...(s.routines || starterState.routines), [period]: [...((s.routines || starterState.routines)[period] || []), { id: uid(), title: title.trim(), note: "A routine you chose for yourself." }] } }));
     },
     addQuest(data) { setState((s) => ({ ...s, quests: [{ id: uid(), status: "active", xp: Number(data.xp) || 30, difficulty: "standard", ...data }, ...s.quests] })); },
     addHabit(data) { setState((s) => ({ ...s, habits: [{ id: uid(), completions: [], cadence: Number(data.cadence) || 3, ...data }, ...s.habits] })); },
@@ -230,15 +264,15 @@ function App() {
   useEffect(() => { const listener = () => setRoute(location.hash.slice(2) || "today"); addEventListener("hashchange", listener); return () => removeEventListener("hashchange", listener); }, []);
   useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, [route]);
   const navigate = (id) => { location.hash = `/${id}`; };
-  const page = { today: <Today state={state} data={data} actions={actions} />, life: <Life state={state} data={data} actions={actions} />, quests: <Quests state={state} data={data} actions={actions} />, progress: <Progress state={state} data={data} actions={actions} />, journal: <Journal state={state} actions={actions} />, coach: <Coach state={state} data={data} actions={actions} /> }[route] || null;
+  const page = { today: <Today state={state} data={data} actions={actions} />, routines: <Routines state={state} actions={actions} />, life: <Life state={state} data={data} actions={actions} />, quests: <Quests state={state} data={data} actions={actions} />, progress: <Progress state={state} data={data} actions={actions} />, journal: <Journal state={state} actions={actions} />, coach: <Coach state={state} data={data} actions={actions} /> }[route] || null;
   return <div className="app-shell"><Sidebar route={route} data={data} navigate={navigate} onQuick={() => setQuickAdd(true)} /><main className="stage">{page}</main><MobileNav route={route} navigate={navigate} onQuick={() => setQuickAdd(true)} />{quickAdd && <QuickAdd state={state} actions={actions} close={() => setQuickAdd(false)} />}</div>;
 }
 
 function Sidebar({ route, navigate, data, onQuick }) {
-  const nav = [["today", "Today", Home], ["life", "Life", Compass], ["quests", "Quests", Target], ["progress", "Progress", Trophy], ["journal", "Journal", PenLine], ["coach", "Coach", Sparkles]];
+  const nav = [["today", "Today", Home], ["routines", "Routines", Sun], ["life", "Life", Compass], ["quests", "Quests", Target], ["progress", "Progress", Trophy], ["journal", "Journal", PenLine], ["coach", "Coach", Sparkles]];
   return <aside className="sidebar"><a href="#/today" className="brand"><span className="brand-orb"><span /></span><span>Game<br />of Life</span></a><nav>{nav.map(([id, label, Icon]) => <button key={id} className={route === id ? "nav active" : "nav"} onClick={() => navigate(id)}><Icon /><span>{label}</span>{id === "today" && <i>{data.activeDays}/7</i>}</button>)}</nav><button className="quick-button" onClick={onQuick}><Plus /> Add to life</button><div className="sidebar-foot"><span className="privacy-dot" /> Yours, stored locally</div></aside>;
 }
-function MobileNav({ route, navigate, onQuick }) { return <nav className="mobile-nav">{[["today", Home], ["life", Compass], ["add", Plus], ["quests", Target], ["progress", Trophy]].map(([id, Icon]) => <button key={id} className={route === id ? "active" : id === "add" ? "add" : ""} onClick={() => id === "add" ? onQuick() : navigate(id)}><Icon /><span>{id === "add" ? "Add" : id}</span></button>)}</nav>; }
+function MobileNav({ route, navigate, onQuick }) { return <nav className="mobile-nav">{[["today", Home], ["routines", Sun], ["life", Compass], ["add", Plus], ["quests", Target], ["progress", Trophy]].map(([id, Icon]) => <button key={id} className={route === id ? "active" : id === "add" ? "add" : ""} onClick={() => id === "add" ? onQuick() : navigate(id)}><Icon /><span>{id === "add" ? "Add" : id}</span></button>)}</nav>; }
 
 function Today({ state, data, actions }) {
   const morning = state.checkins.find((c) => c.type === "morning" && c.date === today());
@@ -263,6 +297,35 @@ function FocusCard({ checkin }) { return <section className="focus-card"><span><
 function MainQuest({ state }) { const quest = state.quests.find((q) => q.type === "main" && q.status === "active") || state.quests.find((q) => q.status === "active"); const goal = state.goals.find((g) => g.id === quest?.goalId); if (!quest) return <Empty text="Choose a seasonal main quest to create a clear through-line." />; const p = pillar(quest.pillarId); const Icon = p.icon; return <article className="main-quest" style={{ "--quest-color": p.color }}><div className="quest-emblem"><Icon /></div><div className="main-quest-copy"><p className="eyebrow">{p.short} · {quest.type} quest</p><h3>{quest.title}</h3><p>{quest.note || "A concrete move toward the life you are building."}</p><div className="goal-breadcrumb"><span>{goal?.title || "Unlinked quest"}</span><span>{goal ? `${goal.progress}%` : ""}</span></div></div><div className="xp-seal"><b>+{quest.xp}</b><small>XP</small></div></article>; }
 function QuestRow({ quest, actions }) { const p = pillar(quest.pillarId); return <article className="quest-row"><button className="check-button" onClick={() => actions.completeQuest(quest.id)} aria-label={`Complete ${quest.title}`}><Check /></button><div className="quest-row-copy"><span style={{ color: p.color }}>{p.short} · {quest.type}</span><h3>{quest.title}</h3>{quest.due && <p>{quest.due === today() ? "Today" : `Due ${formatDate(quest.due)}`}</p>}</div><div className="quest-xp">+{quest.xp}<small>XP</small></div></article>; }
 function Habits({ habits, actions }) { return <section className="habits-card"><SectionHeader icon={RotateCcw} eyebrow="Keep it gentle" title="Rhythms" /><div>{habits.map((habit) => { const done = habit.completions.includes(today()); const recent = habit.completions.filter((d) => d >= daysAgo(6)).length; return <button className={`habit ${done ? "done" : ""}`} onClick={() => actions.toggleHabit(habit.id)} key={habit.id}><span className="habit-check"><Check /></span><span>{habit.title}<small>{recent}/{habit.cadence} this week</small></span><i style={{ background: pillar(habit.pillarId).color }} /></button>; })}</div></section>; }
+
+function routineCompletion(routines, period, date = today()) {
+  const steps = routines?.[period] || [];
+  const completed = routines?.history?.[date]?.[period] || [];
+  return { completed, count: completed.length, total: steps.length, ratio: steps.length ? completed.length / steps.length : 0 };
+}
+function Routines({ state, actions }) {
+  const routines = state.routines || starterState.routines;
+  const [view, setView] = useState("morning");
+  const morning = routineCompletion(routines, "morning");
+  const night = routineCompletion(routines, "night");
+  return <><PageIntro kicker="Your daily rhythm" title="Begin gently. End with care." text="A visual record of the routines you want to return to—without turning one missed day into a setback." aside={<div className="routine-today-score"><Sun /><div><small>Today’s rhythm</small><b>{morning.count + night.count}/{morning.total + night.total}</b></div></div>} />
+    <section className="routine-layout"><RoutinePanel title="Morning routine" period="morning" icon={Sun} color="#ef936e" routines={routines} actions={actions} /><RoutinePanel title="Night routine" period="night" icon={Moon} color="#6f7fbd" routines={routines} actions={actions} /></section>
+    <section className="routine-atlas"><div className="atlas-head"><div><p className="eyebrow">Your return map</p><h2>Rhythm across the year</h2><p>Each square is one day. A fuller routine makes its color more vivid.</p></div><div className="routine-tabs"><button className={view === "morning" ? "active" : ""} onClick={() => setView("morning")}><Sun /> Morning</button><button className={view === "night" ? "active" : ""} onClick={() => setView("night")}><Moon /> Night</button></div></div><RoutineAtlas routines={routines} period={view} /></section>
+  </>;
+}
+function RoutinePanel({ title, period, icon: Icon, color, routines, actions }) {
+  const [newStep, setNewStep] = useState("");
+  const status = routineCompletion(routines, period);
+  const shade = period === "morning" ? `rgba(239, 147, 110, ${0.11 + status.ratio * 0.63})` : `rgba(111, 127, 189, ${0.10 + status.ratio * 0.62})`;
+  return <section className="routine-panel" style={{ backgroundColor: shade, "--routine-color": color }}><div className="routine-panel-head"><span><Icon /></span><div><p>{period === "morning" ? "Start of day" : "End of day"}</p><h2>{title}</h2></div><b>{status.count}<small>/{status.total}</small></b></div><div className="routine-progress"><i><em style={{ width: `${status.ratio * 100}%` }} /></i><span>{status.count === status.total ? "Complete for today" : `${status.total - status.count} small step${status.total - status.count === 1 ? "" : "s"} left`}</span></div><div className="routine-steps">{(routines[period] || []).map((step) => { const done = status.completed.includes(step.id); return <button key={step.id} className={done ? "routine-step done" : "routine-step"} onClick={() => actions.toggleRoutine(period, step.id)}><span><Check /></span><div><b>{step.title}</b><small>{step.note}</small></div></button>; })}</div><div className="routine-add"><input value={newStep} onChange={(e) => setNewStep(e.target.value)} placeholder="Add a step you care about" /><button aria-label={`Add ${period} routine step`} onClick={() => { if (!newStep.trim()) return; actions.addRoutine(period, newStep); setNewStep(""); }}><Plus /></button></div></section>;
+}
+function RoutineAtlas({ routines, period }) {
+  const year = new Date().getFullYear();
+  const monthNames = Array.from({ length: 12 }, (_, month) => new Intl.DateTimeFormat(undefined, { month: "short" }).format(new Date(year, month, 1)));
+  const days = Array.from({ length: 31 }, (_, index) => index + 1);
+  const rgb = period === "morning" ? "239, 147, 110" : "111, 127, 189";
+  return <div className="routine-grid-wrap"><div className="routine-grid"><div className="atlas-months"><span />{monthNames.map((month) => <span key={month}>{month}</span>)}</div>{days.map((day) => <div className="atlas-row" key={day}><span>{day}</span>{monthNames.map((_, month) => { const date = dateISO(new Date(year, month, day)); const exists = new Date(year, month, day).getMonth() === month; const ratio = exists ? routineCompletion(routines, period, date).ratio : 0; const isFuture = date > today(); return <span className={`atlas-cell ${!exists ? "invalid" : ""} ${isFuture ? "future" : ""}`} title={exists ? `${formatDate(date)}: ${Math.round(ratio * 100)}% ${period} routine` : ""} style={exists && !isFuture ? { backgroundColor: `rgba(${rgb}, ${0.09 + ratio * 0.83})` } : undefined} key={`${month}-${day}`} />; })}</div>)}</div><div className="atlas-key"><span>Less</span>{[0.18, .38, .58, .78].map((level) => <i key={level} style={{ backgroundColor: `rgba(${rgb}, ${level})` }} />)}<span>More</span></div></div>;
+}
 function NightRecap({ actions }) { const [open, setOpen] = useState(false); const [form, setForm] = useState({ win: "", gratitude: "", tomorrow: "", mood: 3, energy: 3 }); return <section className="night-card">{!open ? <><div><p className="eyebrow"><Moon /> End the day softly</p><h3>One-minute nightly recap</h3></div><button className="secondary" onClick={() => setOpen(true)}>Reflect <ChevronRight /></button></> : <div className="recap-form"><h3>Close the day</h3><input placeholder="Today’s biggest win" value={form.win} onChange={(e) => setForm({ ...form, win: e.target.value })} /><input placeholder="One thing I’m grateful for" value={form.gratitude} onChange={(e) => setForm({ ...form, gratitude: e.target.value })} /><input placeholder="Make tomorrow easier by…" value={form.tomorrow} onChange={(e) => setForm({ ...form, tomorrow: e.target.value })} /><button className="primary" onClick={() => actions.checkIn({ ...form, type: "night" })}>Save recap <Check /></button></div>}</section>; }
 
 function Life({ state, data, actions }) { const [selected, setSelected] = useState("career"); const p = pillar(selected); const PillarIcon = p.icon; const relatedGoals = state.goals.filter((g) => g.pillarId === selected); const relatedQuests = state.quests.filter((q) => q.pillarId === selected && q.status === "active"); const selectedData = data.levels[selected]; return <><PageIntro kicker="Your living map" title="Life, at a glance." text="The wheel reflects the priorities you set—not a verdict on how well you are living." aside={<div className="alignment-chip"><small>Alignment</small><b>{data.alignment}</b><span>steady</span></div>} /><section className="life-layout"><div className="wheel-card"><LifeWheel data={data} state={state} selected={selected} onSelect={setSelected} /><p className="wheel-caption"><ShieldCheck /> {p.short} is {data.pulse[selected] >= 70 ? "one of your strongest areas" : "asking for a little care"}. Intentional pauses are never treated as neglect.</p></div><aside className="pillar-detail"><div className="pillar-detail-head" style={{ "--pillar": p.color }}><PillarIcon /><div><p className="eyebrow">Pillar profile</p><h2>{p.name}</h2><p>{p.description}</p></div></div><div className="pillar-statline"><div><small>Level</small><b>{selectedData.level}</b></div><div><small>Pulse</small><b>{data.pulse[selected]}</b></div><div><small>XP</small><b>{data.xpByPillar[selected]}</b></div></div><label className="rating-control">How does this area feel this week?<div>{[1,2,3,4,5].map((n) => <button className={(state.pillars[selected]?.selfRating || 3) === n ? "picked" : ""} onClick={() => actions.update((s) => ({ ...s, pillars: { ...s.pillars, [selected]: { ...s.pillars[selected], selfRating: n } } }))} key={n}>{n}</button>)}</div></label><h3>Active goals</h3>{relatedGoals.map((goal) => <ProgressLine key={goal.id} label={goal.title} value={goal.progress} color={p.color} />)}<h3>Next moves</h3>{relatedQuests.slice(0, 3).map((q) => <QuestRow key={q.id} quest={q} actions={actions} />)}</aside></section><section className="pillar-grid">{PILLARS.map((item) => { const Icon = item.icon; return <button key={item.id} className={selected === item.id ? "pillar-card selected" : "pillar-card"} onClick={() => setSelected(item.id)} style={{ "--pillar": item.color }}><Icon /><span>{item.short}</span><b>{data.pulse[item.id]}</b><i><em style={{ width: `${data.pulse[item.id]}%` }} /></i></button>; })}</section><PillarWorkbench selected={selected} state={state} actions={actions} /></> }
