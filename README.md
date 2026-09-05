@@ -30,6 +30,6 @@ npm run build
 
 ## Data and privacy
 
-No account or backend is required. The app stores its data in the current browser under the `game-of-life.v2` key. Use **Progress → Export your data** to keep a JSON backup. Clearing the browser’s site data removes local records.
+No account or backend is required. The app stores its data in the current browser under the `game-of-life.v3` key. New installs start with no sample records. Use **Progress → Export your data** to keep a JSON backup. Clearing the browser’s site data removes local records.
 
 See [PRODUCT_PLAN.md](./PRODUCT_PLAN.md) for the product strategy, the MVP/V2 boundary, data-model direction, and future integration plan.

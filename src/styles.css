@@ -52,3 +52,5 @@ a { color:inherit; } h1,h2,h3,p { margin:0; } h1,h2,h3 { font-family:Fraunces, G
 @media (max-width:560px) { .workbench { padding:18px; }.workbench-heading { display:grid; }.food-goal { justify-self:start; justify-items:start; }.person-card { grid-template-columns:35px 1fr; }.person-card .secondary { grid-column:1/-1; justify-self:start; }.inline-form { grid-template-columns:1fr 74px 34px; } }
 @media (max-width:560px) { .routine-panel,.routine-atlas { padding:18px; }.routine-panel-head h2 { font-size:1.25rem; }.routine-progress { align-items:flex-start; flex-direction:column; }.atlas-head { align-items:flex-start; flex-direction:column; }.routine-tabs { width:100%; }.routine-tabs button { flex:1; justify-content:center; }.routine-today-score { width:max-content; } }
 @media (prefers-reduced-motion:reduce) { *,*:before,*:after { scroll-behavior:auto!important; transition:none!important; animation:none!important; } }
+.calendar-empty { padding-top:10px; border-top:1px solid #e8edef; color:#7d8b93; font-size:10px; line-height:1.5; }
+.pillar-empty { color:#7a8992; font-size:10px; line-height:1.5; }

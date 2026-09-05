@@ -6,7 +6,7 @@ import {
   X, Zap,
 } from "lucide-react";
 
-const STORAGE_KEY = "game-of-life.v2";
+const STORAGE_KEY = "game-of-life.v3";
 const DAY = 86400000;
 
 const PILLARS = [
@@ -104,71 +104,25 @@ const levelFromXP = (xp, overall = false) => {
   return { level, current: remainder, next: (overall ? 250 : 100) + (overall ? 50 : 25) * level };
 };
 const daysAgo = (days) => dateISO(new Date(Date.now() - days * DAY));
-const routineHistory = () => Object.fromEntries([
-  [1, ["make-bed", "water", "sunlight"], ["wind-down", "journal", "prepare-tomorrow"]],
-  [2, ["make-bed", "water", "plan-day"], ["wind-down", "screens-off"]],
-  [3, ["make-bed", "water", "sunlight", "plan-day"], ["wind-down", "journal", "prepare-tomorrow", "screens-off"]],
-  [4, ["make-bed", "water"], ["wind-down", "journal"]],
-  [6, ["make-bed", "water", "sunlight"], ["wind-down", "prepare-tomorrow"]],
-].map(([days, morning, night]) => [daysAgo(days), { morning, night }]));
-
 const starterState = {
-  profile: { name: "Steven", currentSeasonId: "fall-2026" },
+  profile: { name: "", currentSeasonId: "" },
   settings: { showAlignment: true },
-  pillars: Object.fromEntries(PILLARS.map((item, i) => [item.id, { importance: i < 4 ? 5 : i < 7 ? 3 : 2, active: i < 5, selfRating: i === 1 ? 3 : 4 }])),
-  seasons: [{ id: "fall-2026", title: "Build the Launchpad", label: "Fall 2026", start: "2026-09-01", end: "2026-11-30", intention: "Create momentum without losing the rest of my life.", priorities: ["career", "learning", "health", "relationships"], objectives: ["interview-ready", "semester-strong"], recap: "" }],
-  goals: [
-    { id: "job", title: "Land a software engineering job", pillarId: "career", horizon: "year", status: "active", progress: 28, seasonId: "fall-2026" },
-    { id: "interview-ready", title: "Become interview ready", pillarId: "career", horizon: "season", status: "active", progress: 45, parentId: "job", seasonId: "fall-2026" },
-    { id: "semester-strong", title: "Finish the semester strongly", pillarId: "learning", horizon: "season", status: "active", progress: 32, seasonId: "fall-2026" },
-    { id: "serve", title: "Build a more reliable serve", pillarId: "tennis", horizon: "season", status: "active", progress: 20, seasonId: "fall-2026" },
-    { id: "energy", title: "Feel strong and well-rested", pillarId: "health", horizon: "year", status: "active", progress: 38 },
-  ],
-  quests: [
-    { id: "behavioral", title: "Practice behavioral stories for 45 minutes", pillarId: "career", type: "weekly", difficulty: "standard", xp: 50, status: "active", due: today(), goalId: "interview-ready", note: "Use STAR stories for teamwork and challenge prompts." },
-    { id: "portfolio", title: "Ship portfolio case study", pillarId: "career", type: "main", difficulty: "challenging", xp: 120, status: "active", due: "2026-09-18", goalId: "job", note: "Show the decisions, not just the screenshots." },
-    { id: "lab", title: "Submit systems lab", pillarId: "learning", type: "daily", difficulty: "standard", xp: 30, status: "active", due: today(), goalId: "semester-strong" },
-    { id: "tennis-practice", title: "Deliberate serving practice", pillarId: "tennis", type: "recurring", difficulty: "standard", xp: 30, status: "active", due: today(), goalId: "serve" },
-    { id: "call-dad", title: "Call Dad and catch up", pillarId: "relationships", type: "side", difficulty: "small", xp: 20, status: "active", due: today() },
-    { id: "budget", title: "Weekly money check", pillarId: "money", type: "recurring", difficulty: "small", xp: 20, status: "active", due: daysAgo(-2), note: "Look for one decision, not a perfect spreadsheet." },
-  ],
-  habits: [
-    { id: "morning", title: "Morning reset", pillarId: "mind", cadence: 5, completions: [daysAgo(1), daysAgo(2), daysAgo(4)] },
-    { id: "mobility", title: "10-minute mobility", pillarId: "health", cadence: 4, completions: [daysAgo(1), daysAgo(3), daysAgo(5)] },
-    { id: "water", title: "Fill water bottle", pillarId: "food", cadence: 7, completions: [daysAgo(1), daysAgo(2), daysAgo(3), daysAgo(4), daysAgo(5)] },
-    { id: "read", title: "Read before bed", pillarId: "learning", cadence: 4, completions: [daysAgo(2), daysAgo(4), daysAgo(5)] },
-  ],
-  routines: {
-    morning: [
-      { id: "make-bed", title: "Make the bed", note: "Start with a small reset." },
-      { id: "water", title: "Drink water", note: "One full glass before coffee." },
-      { id: "sunlight", title: "Get some sunlight", note: "Step outside for a few minutes." },
-      { id: "plan-day", title: "Choose today’s focus", note: "One meaningful move is enough." },
-    ],
-    night: [
-      { id: "wind-down", title: "Wind down", note: "Make the room and mind quieter." },
-      { id: "journal", title: "Write a few lines", note: "Capture the win or the lesson." },
-      { id: "prepare-tomorrow", title: "Set up tomorrow", note: "Remove one piece of morning friction." },
-      { id: "screens-off", title: "Put screens away", note: "Let the day actually end." },
-    ],
-    history: { ...routineHistory(), [today()]: { morning: ["make-bed", "water"], night: [] } },
-  },
-  xpEvents: [
-    { id: "xp1", pillarId: "career", amount: 180, label: "Interview preparation", date: daysAgo(1) },
-    { id: "xp2", pillarId: "health", amount: 260, label: "Training sessions", date: daysAgo(2) },
-    { id: "xp3", pillarId: "relationships", amount: 420, label: "Quality time", date: daysAgo(3) },
-    { id: "xp4", pillarId: "learning", amount: 160, label: "Coursework", date: daysAgo(4) },
-    { id: "xp5", pillarId: "tennis", amount: 190, label: "Court time", date: daysAgo(5) },
-  ],
-  checkins: [{ id: "weekly-sample", type: "weekly", date: daysAgo(2), ratings: { career: 3, learning: 4, health: 4, relationships: 4 }, win: "Kept the important work moving.", focus: "Protect deep-work blocks." }],
-  journal: [{ id: "j1", date: daysAgo(1), body: "I felt more confident when I prepared concrete stories instead of trying to sound impressive.", pillarId: "career", goalId: "interview-ready", memory: false }],
-  timeline: [{ id: "t1", date: "2026-09-01", title: "Started Fall 2026: Build the Launchpad", type: "season", pillarId: "career" }, { id: "t2", date: daysAgo(3), title: "Reached Career Level 2", type: "level", pillarId: "career" }],
-  achievements: ["first-steps"],
-  people: [{ id: "dad", name: "Dad", relation: "Family", lastContact: daysAgo(12), note: "Ask about the garden", birthday: "" }],
-  food: { proteinGoal: 130, waterGoal: 3, meals: [{ id: "m1", date: today(), name: "Greek yogurt bowl", type: "Breakfast", protein: 24, atHome: true }, { id: "m2", date: daysAgo(1), name: "Chicken rice bowl", type: "Dinner", protein: 38, atHome: true }], recipes: [{ id: "r1", name: "Weeknight salmon bowls", note: "Fast, flexible, great with leftover rice." }] },
-  money: { savingsGoal: 5000, saved: 1840, transactions: [{ id: "x1", date: today(), name: "Groceries", amount: -64.2, category: "Food" }, { id: "x2", date: daysAgo(2), name: "Coaching income", amount: 180, category: "Income" }] },
-  tennis: { sessions: [{ id: "s1", date: daysAgo(1), title: "Serve + return patterns", minutes: 75, note: "Second serve targets were better." }] },
-  calendar: { events: [{ id: "c1", date: today(), time: "4:30 PM", title: "Tennis practice", pillarId: "tennis", linked: true }, { id: "c2", date: today(), time: "7:00 PM", title: "Call Dad", pillarId: "relationships", linked: true }] },
+  pillars: Object.fromEntries(PILLARS.map((item) => [item.id, { importance: 3, active: true, selfRating: null }])),
+  seasons: [],
+  goals: [],
+  quests: [],
+  habits: [],
+  routines: { morning: [], night: [], history: {} },
+  xpEvents: [],
+  checkins: [],
+  journal: [],
+  timeline: [],
+  achievements: [],
+  people: [],
+  food: { proteinGoal: 0, waterGoal: 0, meals: [], recipes: [] },
+  money: { savingsGoal: 0, saved: 0, transactions: [] },
+  tennis: { sessions: [] },
+  calendar: { events: [] },
 };
 
 function getState() {
@@ -253,8 +207,9 @@ function derive(state) {
     const configured = state.pillars[item.id] || {};
     const actions = state.xpEvents.filter((e) => e.pillarId === item.id && e.date >= daysAgo(20)).length + state.habits.filter((h) => h.pillarId === item.id).flatMap((h) => h.completions.filter((d) => d >= daysAgo(20))).length;
     const goals = state.goals.filter((g) => g.pillarId === item.id && g.status === "active");
-    const goalProgress = goals.length ? goals.reduce((sum, g) => sum + g.progress, 0) / goals.length : 45;
-    const base = (configured.selfRating || 3) * 14 + goalProgress * .25 + Math.min(actions, 8) * 3.5;
+    const goalProgress = goals.length ? goals.reduce((sum, g) => sum + g.progress, 0) / goals.length : 0;
+    const selfRating = Number.isFinite(configured.selfRating) ? configured.selfRating : 0;
+    const base = selfRating * 14 + goalProgress * .25 + Math.min(actions, 8) * 3.5;
     return [item.id, Math.round(clamp(base, 0, 100))];
   }));
   const priorities = state.seasons.find((s) => s.id === state.profile.currentSeasonId)?.priorities || [];
@@ -287,13 +242,15 @@ function Today({ state, data, actions }) {
   const season = state.seasons.find((s) => s.id === state.profile.currentSeasonId);
   const todayQuests = state.quests.filter((q) => q.status === "active" && (!q.due || q.due <= today())).slice(0, 4);
   const attention = PILLARS.filter((p) => state.pillars[p.id]?.active).sort((a, b) => data.pulse[a.id] - data.pulse[b.id])[0];
-  return <><PageIntro kicker={season?.label} title={`Good ${timeGreeting()}, ${state.profile.name}.`} text={morning?.focus || "Choose a few things that make today count. The rest can wait."} aside={<LevelChip data={data} />} />
+  const greeting = state.profile.name ? `Good ${timeGreeting()}, ${state.profile.name}.` : `Good ${timeGreeting()}.`;
+  return <><PageIntro kicker={season?.label || "Your Game of Life"} title={greeting} text={morning?.focus || "Choose a few things that make today count. The rest can wait."} aside={<LevelChip data={data} />} />
     <section className="today-grid"><div className="today-main">
       {!morning ? <MorningCheck state={state} actions={actions} /> : <FocusCard checkin={morning} />}
       <section className="section-block"><SectionHeader icon={Target} eyebrow="Your through-line" title="Main quest" action="View all" href="#/quests" /><MainQuest state={state} data={data} /></section>
       <section className="section-block"><SectionHeader icon={Check} eyebrow="Small, meaningful moves" title="Today’s plan" /><div className="quest-list">{todayQuests.map((quest) => <QuestRow key={quest.id} quest={quest} actions={actions} />)}{!todayQuests.length && <Empty text="Your plan is clear. Add a meaningful next move when you need one." />}</div></section>
-    </div><aside className="today-side"><Habits habits={state.habits} actions={actions} /><div className="signal-card"><p className="eyebrow">Gentle signal</p><h3>{pillar(attention.id).short} could use a little attention.</h3><p>It is below your usual rhythm—not behind. One small action is enough.</p><a href="#/life">See your life wheel <ChevronRight /></a></div><div className="calendar-card"><p className="eyebrow"><CalendarDays /> Today</p><div><b>4:30 PM</b><span>Tennis practice</span></div><div><b>7:00 PM</b><span>Call Dad</span></div></div>{!night ? <NightRecap actions={actions} /> : <div className="complete-card"><Check /> Nightly recap complete. See you tomorrow.</div>}</aside></section></>;
+    </div><aside className="today-side"><Habits habits={state.habits} actions={actions} /><div className="signal-card"><p className="eyebrow">Gentle signal</p><h3>{pillar(attention.id).short} could use a little attention.</h3><p>It is below your usual rhythm—not behind. One small action is enough.</p><a href="#/life">See your life wheel <ChevronRight /></a></div><CalendarPreview events={state.calendar?.events || []} />{!night ? <NightRecap actions={actions} /> : <div className="complete-card"><Check /> Nightly recap complete. See you tomorrow.</div>}</aside></section></>;
 }
+function CalendarPreview({ events }) { return <div className="calendar-card"><p className="eyebrow"><CalendarDays /> Today</p>{events.length ? events.map((event) => <div key={event.id}><b>{event.time}</b><span>{event.title}</span></div>) : <p className="calendar-empty">No events yet. Add a calendar event when you are ready.</p>}</div>; }
 function timeGreeting() { const hour = new Date().getHours(); return hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"; }
 function PageIntro({ kicker, title, text, aside }) { return <header className="page-intro"><div><p className="eyebrow">{kicker}</p><h1>{title}</h1><p className="intro-text">{text}</p></div>{aside}</header>; }
 function LevelChip({ data }) { return <div className="level-chip"><span className="level-rune"><Zap /></span><div><small>Player level</small><b>{data.player.level}</b><em>{data.player.current}/{data.player.next} XP</em></div></div>; }
@@ -335,7 +292,7 @@ function RoutineAtlas({ routines, period }) {
 }
 function NightRecap({ actions }) { const [open, setOpen] = useState(false); const [form, setForm] = useState({ win: "", gratitude: "", tomorrow: "", mood: 3, energy: 3 }); return <section className="night-card">{!open ? <><div><p className="eyebrow"><Moon /> End the day softly</p><h3>One-minute nightly recap</h3></div><button className="secondary" onClick={() => setOpen(true)}>Reflect <ChevronRight /></button></> : <div className="recap-form"><h3>Close the day</h3><input placeholder="Today’s biggest win" value={form.win} onChange={(e) => setForm({ ...form, win: e.target.value })} /><input placeholder="One thing I’m grateful for" value={form.gratitude} onChange={(e) => setForm({ ...form, gratitude: e.target.value })} /><input placeholder="Make tomorrow easier by…" value={form.tomorrow} onChange={(e) => setForm({ ...form, tomorrow: e.target.value })} /><button className="primary" onClick={() => actions.checkIn({ ...form, type: "night" })}>Save recap <Check /></button></div>}</section>; }
 
-function Life({ state, data, actions }) { const [selected, setSelected] = useState("career"); const p = pillar(selected); const PillarIcon = p.icon; const relatedGoals = state.goals.filter((g) => g.pillarId === selected); const relatedQuests = state.quests.filter((q) => q.pillarId === selected && q.status === "active"); const selectedData = data.levels[selected]; return <><PageIntro kicker="Your living map" title="Life, at a glance." text="The wheel reflects the priorities you set—not a verdict on how well you are living." aside={<div className="alignment-chip"><small>Alignment</small><b>{data.alignment}</b><span>steady</span></div>} /><section className="life-layout"><div className="wheel-card"><LifeWheel data={data} state={state} selected={selected} onSelect={setSelected} /><p className="wheel-caption"><ShieldCheck /> {p.short} is {data.pulse[selected] >= 70 ? "one of your strongest areas" : "asking for a little care"}. Intentional pauses are never treated as neglect.</p></div><aside className="pillar-detail"><div className="pillar-detail-head" style={{ "--pillar": p.color }}><PillarIcon /><div><p className="eyebrow">Pillar profile</p><h2>{p.name}</h2><p>{p.description}</p></div></div><div className="pillar-statline"><div><small>Level</small><b>{selectedData.level}</b></div><div><small>Pulse</small><b>{data.pulse[selected]}</b></div><div><small>XP</small><b>{data.xpByPillar[selected]}</b></div></div><label className="rating-control">How does this area feel this week?<div>{[1,2,3,4,5].map((n) => <button className={(state.pillars[selected]?.selfRating || 3) === n ? "picked" : ""} onClick={() => actions.update((s) => ({ ...s, pillars: { ...s.pillars, [selected]: { ...s.pillars[selected], selfRating: n } } }))} key={n}>{n}</button>)}</div></label><h3>Active goals</h3>{relatedGoals.map((goal) => <ProgressLine key={goal.id} label={goal.title} value={goal.progress} color={p.color} />)}<h3>Next moves</h3>{relatedQuests.slice(0, 3).map((q) => <QuestRow key={q.id} quest={q} actions={actions} />)}</aside></section><section className="pillar-grid">{PILLARS.map((item) => { const Icon = item.icon; return <button key={item.id} className={selected === item.id ? "pillar-card selected" : "pillar-card"} onClick={() => setSelected(item.id)} style={{ "--pillar": item.color }}><Icon /><span>{item.short}</span><b>{data.pulse[item.id]}</b><i><em style={{ width: `${data.pulse[item.id]}%` }} /></i></button>; })}</section><PillarWorkbench selected={selected} state={state} actions={actions} /></> }
+function Life({ state, data, actions }) { const [selected, setSelected] = useState("career"); const p = pillar(selected); const PillarIcon = p.icon; const relatedGoals = state.goals.filter((g) => g.pillarId === selected); const relatedQuests = state.quests.filter((q) => q.pillarId === selected && q.status === "active"); const selectedData = data.levels[selected]; return <><PageIntro kicker="Your living map" title="Life, at a glance." text="The wheel reflects the priorities you set—not a verdict on how well you are living." aside={<div className="alignment-chip"><small>Alignment</small><b>{data.alignment}</b><span>steady</span></div>} /><section className="life-layout"><div className="wheel-card"><LifeWheel data={data} state={state} selected={selected} onSelect={setSelected} /><p className="wheel-caption"><ShieldCheck /> {p.short} is {data.pulse[selected] >= 70 ? "one of your strongest areas" : "asking for a little care"}. Intentional pauses are never treated as neglect.</p></div><aside className="pillar-detail"><div className="pillar-detail-head" style={{ "--pillar": p.color }}><PillarIcon /><div><p className="eyebrow">Pillar profile</p><h2>{p.name}</h2><p>{p.description}</p></div></div><div className="pillar-statline"><div><small>Level</small><b>{selectedData.level}</b></div><div><small>Pulse</small><b>{data.pulse[selected]}</b></div><div><small>XP</small><b>{data.xpByPillar[selected]}</b></div></div><label className="rating-control">How does this area feel this week?<div>{[1,2,3,4,5].map((n) => <button className={state.pillars[selected]?.selfRating === n ? "picked" : ""} onClick={() => actions.update((s) => ({ ...s, pillars: { ...s.pillars, [selected]: { ...s.pillars[selected], selfRating: n } } }))} key={n}>{n}</button>)}</div></label><h3>Active goals</h3>{relatedGoals.length ? relatedGoals.map((goal) => <ProgressLine key={goal.id} label={goal.title} value={goal.progress} color={p.color} />) : <p className="pillar-empty">No goals here yet.</p>}<h3>Next moves</h3>{relatedQuests.length ? relatedQuests.slice(0, 3).map((q) => <QuestRow key={q.id} quest={q} actions={actions} />) : <p className="pillar-empty">Add a linked quest when you are ready.</p>}</aside></section><section className="pillar-grid">{PILLARS.map((item) => { const Icon = item.icon; return <button key={item.id} className={selected === item.id ? "pillar-card selected" : "pillar-card"} onClick={() => setSelected(item.id)} style={{ "--pillar": item.color }}><Icon /><span>{item.short}</span><b>{data.pulse[item.id]}</b><i><em style={{ width: `${data.pulse[item.id]}%` }} /></i></button>; })}</section><PillarWorkbench selected={selected} state={state} actions={actions} /></> }
 function LifeWheel({ data, state, selected, onSelect }) { const points = PILLARS.map((p, i) => { const angle = (Math.PI * 2 * i) / PILLARS.length - Math.PI / 2; const r = 105 * (data.pulse[p.id] / 100); return `${150 + Math.cos(angle) * r},${150 + Math.sin(angle) * r}`; }).join(" "); return <div className="wheel"><svg viewBox="0 0 300 300" aria-label="Life Wheel radar chart"><g className="wheel-rings">{[35,70,105].map((r) => <circle cx="150" cy="150" r={r} key={r} />)}{PILLARS.map((p, i) => { const a = Math.PI * 2 * i / PILLARS.length - Math.PI / 2; return <line key={p.id} x1="150" y1="150" x2={150 + Math.cos(a) * 105} y2={150 + Math.sin(a) * 105} />; })}</g><polygon points={points} className="wheel-shape" />{PILLARS.map((p, i) => { const a = Math.PI * 2 * i / PILLARS.length - Math.PI / 2; const r = 105 * data.pulse[p.id] / 100; return <circle key={p.id} className={selected === p.id ? "wheel-point selected" : "wheel-point"} cx={150 + Math.cos(a) * r} cy={150 + Math.sin(a) * r} r="5" onClick={() => onSelect(p.id)} />; })}</svg><div className="wheel-labels">{PILLARS.map((p, i) => { const a = Math.PI * 2 * i / PILLARS.length - Math.PI / 2; return <button key={p.id} className={selected === p.id ? "selected" : ""} style={{ left: `${50 + Math.cos(a) * 48}%`, top: `${50 + Math.sin(a) * 48}%` }} onClick={() => onSelect(p.id)}>{p.short}</button>; })}</div></div>; }
 function ProgressLine({ label, value, color }) { return <div className="progress-line"><div><span>{label}</span><b>{value}%</b></div><i><em style={{ width: `${value}%`, background: color }} /></i></div>; }
 
